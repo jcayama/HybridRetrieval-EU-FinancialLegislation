@@ -1,0 +1,25 @@
+{"query_id": "q001", "type": "paraphrase", "theme": "incidents", "query": "How quickly must a company tell regulators after discovering that its automated system caused serious harm?"}
+{"query_id": "q002", "type": "exact_term", "theme": "incidents", "query": "voluntary notification of significant cyber threats"}
+{"query_id": "q003", "type": "multi_article", "theme": "incidents", "query": "What steps must a financial firm follow from detecting an ICT incident to reporting it to the authority?"}
+{"query_id": "q004", "type": "paraphrase", "theme": "third_parties", "query": "What must a bank write into its contract with a cloud provider?"}
+{"query_id": "q005", "type": "exact_term", "theme": "third_parties", "query": "Lead Overseer"}
+{"query_id": "q006", "type": "multi_article", "theme": "third_parties", "query": "How are the technology suppliers that financial firms depend on most identified and supervised?"}
+{"query_id": "q007", "type": "paraphrase", "theme": "high_risk_governance", "query": "Rules on the quality of data used to train automated systems that make high-stakes decisions"}
+{"query_id": "q008", "type": "multi_article", "theme": "high_risk_governance", "query": "What must be documented, logged and overseen by humans for a high-risk AI system?"}
+{"query_id": "q009", "type": "exact_term", "theme": "resilience_testing", "query": "TLPT"}
+{"query_id": "q010", "type": "paraphrase", "theme": "resilience_testing", "query": "How often must a financial firm test whether its IT systems can withstand attacks, and who may run those tests?"}
+{"query_id": "q011", "type": "paraphrase", "theme": "aifmd_authorisation", "query": "How much money must a fund manager have set aside before it can start operating?"}
+{"query_id": "q012", "type": "exact_term", "theme": "aifmd_authorisation", "query": "EUR 125 000"}
+{"query_id": "q013", "type": "multi_article", "theme": "aifmd_authorisation", "query": "What must a manager submit to be authorised, and when can that authorisation be refused or withdrawn?"}
+{"query_id": "q014", "type": "paraphrase", "theme": "aifmd_depositary_valuation", "query": "Who keeps the assets of an investment fund safe, and what are they liable for?"}
+{"query_id": "q015", "type": "exact_term", "theme": "aifmd_depositary_valuation", "query": "prime broker"}
+{"query_id": "q016", "type": "multi_article", "theme": "aifmd_depositary_valuation", "query": "How must the value of a fund's assets be determined, and who is responsible for checking it?"}
+{"query_id": "q017", "type": "paraphrase", "theme": "aifmd_risk_liquidity_remuneration", "query": "Are managers' pay packages restricted to discourage excessive risk taking?"}
+{"query_id": "q018", "type": "exact_term", "theme": "aifmd_risk_liquidity_remuneration", "query": "stress tests"}
+{"query_id": "q019", "type": "multi_article", "theme": "aifmd_risk_liquidity_remuneration", "query": "What risk and liquidity management safeguards must a fund manager have in place?"}
+{"query_id": "q020", "type": "paraphrase", "theme": "aifmd_marketing_third_countries", "query": "Can a manager based outside the EU sell its funds to investors in several member states?"}
+{"query_id": "q021", "type": "exact_term", "theme": "aifmd_marketing_third_countries", "query": "letter-box"}
+{"query_id": "q022", "type": "multi_article", "theme": "aifmd_marketing_third_countries", "query": "Under what conditions can a fund be offered to retail investors compared with professional investors?"}
+{"query_id": "q023", "type": "paraphrase", "theme": "aifmd_control_non_listed", "query": "What must a fund disclose when it takes over a private company?"}
+{"query_id": "q024", "type": "exact_term", "theme": "aifmd_control_non_listed", "query": "carried interest"}
+{"query_id": "q025", "type": "exact_term", "theme": "aifmd_authorisation", "query": "sub-delegation"}

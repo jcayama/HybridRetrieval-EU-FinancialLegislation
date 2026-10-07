@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import browse_corpus, chunk_corpus
+from scripts import browse_corpus, chunk_corpus, golden
 from scripts import download_corpus as corpus
 
 
@@ -40,6 +40,18 @@ def list_articles(act: str | None, article_range: str | None):
 def show_article(act: str, number: int):
     """Muestra el texto completo de un artículo: ACT (aifmd|dora|aiact) y NUMBER."""
     sys.exit(browse_corpus.run_show(act, number))
+
+
+@cli.command("validate-golden")
+def validate_golden():
+    """Valida data/golden (formato, artículos, grados) y muestra avisos de revisión."""
+    sys.exit(golden.run_validate())
+
+
+@cli.command("freeze-golden")
+def freeze_golden():
+    """Congela el golden set (SHA-256). Hazlo solo cuando esté completo."""
+    sys.exit(golden.run_freeze())
 
 
 if __name__ == "__main__":
