@@ -90,3 +90,4 @@ database.sqlite
 .pytest_cache/
 .ruff_cache/
 logs/
+data/raw/
