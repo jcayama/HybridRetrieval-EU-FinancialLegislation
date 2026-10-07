@@ -61,6 +61,7 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 |---------|----------|
 | `python cli.py download-corpus` | Descarga el corpus y **verifica** que el SHA-256 de cada acto coincide con `data/corpus.sha256` y que el número de artículos es el esperado (71, 64 y 113). Falla si algo no coincide. |
 | `python cli.py download-corpus --freeze` | Igual, pero **escribe** `data/corpus.sha256`. Solo se usa la primera vez, para congelar el corpus. |
+| `python cli.py chunk` | Genera los chunks a partir del corpus congelado (comprueba antes los hashes): uno por artículo y ventanas de 200 palabras con solape de 40. Escribe `data/chunks/*.jsonl`. |
 
 ### Datos
 
@@ -68,6 +69,20 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
   con el hash.
 - `data/corpus.sha256`: hashes congelados del corpus. Sí se versiona; es lo que garantiza que
   todos trabajan con el mismo texto.
+- `data/chunks/`: chunks en JSONL (`articles.jsonl` y `windows_w200_o40.jsonl`). Sí se versionan.
+  Un test comprueba que regenerarlos desde el corpus congelado da exactamente los mismos ficheros.
+
+### Chunking
+
+- **Alcance:** solo artículos (248: AIFMD 71, DORA 64, AI Act 113). Considerandos y anexos quedan fuera.
+- **Por artículo:** un chunk por artículo, con cabecera `Article N. Título`.
+- **Por ventanas:** 200 palabras del cuerpo con solape de 40, sin cruzar el límite de un artículo; si la
+  cola nueva tiene menos de 50 palabras se fusiona con la ventana anterior. Cada ventana empieza por la
+  cabecera `Article N. Título` (sus palabras no cuentan para las 200).
+- **Fidelidad:** el texto es literal; solo se normalizan espacios. Las filas de las listas `(a) ...` se
+  unen en una línea.
+- **Evaluación:** los juicios de relevancia se darán por artículo (`celex` + `article`), de modo que
+  ambas estrategias se miden con los mismos juicios.
 
 ## Atribución y licencia del corpus
 

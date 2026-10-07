@@ -4,6 +4,7 @@ import sys
 
 import click
 
+from scripts import chunk_corpus
 from scripts import download_corpus as corpus
 
 
@@ -17,6 +18,12 @@ def cli():
 def download_corpus(freeze: bool):
     """Descarga el corpus de EUR-Lex y verifica hashes y recuento de artículos."""
     sys.exit(corpus.run(freeze=freeze))
+
+
+@cli.command("chunk")
+def chunk():
+    """Genera los chunks (por artículo y por ventanas) a partir del corpus congelado."""
+    sys.exit(chunk_corpus.run())
 
 
 if __name__ == "__main__":
