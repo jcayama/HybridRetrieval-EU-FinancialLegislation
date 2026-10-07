@@ -1,11 +1,11 @@
+import fastapi.openapi.utils as fu
 from fastapi import APIRouter, Body, Depends, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+
+from functions.generalFunctions import ModelRetrieval
 from models.response import ErrorResponse
 from schemas.indexes import Indexes, InputData
-from functions.generalFunctions import ModelRetrieval
-import fastapi.openapi.utils as fu
-
 
 responses = {
     400: {"model": ErrorResponse, "description": "Error: Bad Request"},

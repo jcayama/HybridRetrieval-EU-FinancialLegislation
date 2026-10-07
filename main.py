@@ -1,11 +1,13 @@
 from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
-from routers.hybridretrieval import hybrid_retrieval_router
+
 from functions.generalFunctions import ModelRetrieval
 from middlewares.error_handler import ErrorHandler
+from routers.hybridretrieval import hybrid_retrieval_router
 
 
 @asynccontextmanager
