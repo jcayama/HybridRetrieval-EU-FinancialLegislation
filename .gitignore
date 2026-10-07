@@ -87,4 +87,6 @@ __pycache__
 virtual_env
 database.sqlite
 .vscode
-.flake8
+.pytest_cache/
+.ruff_cache/
+logs/
