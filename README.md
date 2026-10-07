@@ -62,6 +62,10 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 | `python cli.py download-corpus` | Descarga el corpus y **verifica** que el SHA-256 de cada acto coincide con `data/corpus.sha256` y que el número de artículos es el esperado (71, 64 y 113). Falla si algo no coincide. |
 | `python cli.py download-corpus --freeze` | Igual, pero **escribe** `data/corpus.sha256`. Solo se usa la primera vez, para congelar el corpus. |
 | `python cli.py chunk` | Genera los chunks a partir del corpus congelado (comprueba antes los hashes): uno por artículo y ventanas de 200 palabras con solape de 40. Escribe `data/chunks/*.jsonl`. |
+| `python cli.py list-articles [--act dora\|aifmd\|aiact] [--range 17-23]` | Lista artículos (acto, número, título y nº de palabras). |
+| `python cli.py show-article <acto> <N>` | Muestra el texto completo de un artículo, tal y como se indexa. |
+| `python cli.py validate-golden` | Valida el golden set: formato, que los artículos existen, grados 1–3, consultas sin juicios; muestra avisos de revisión y el reparto por tipo. Falla si hay errores o si el golden set congelado se modificó. |
+| `python cli.py freeze-golden` | Congela el golden set (SHA-256 en `data/golden/golden.sha256`). Solo con el conjunto completo. |
 
 ### Datos
 
@@ -71,6 +75,21 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
   todos trabajan con el mismo texto.
 - `data/chunks/`: chunks en JSONL (`articles.jsonl` y `windows_w200_o40.jsonl`). Sí se versionan.
   Un test comprueba que regenerarlos desde el corpus congelado da exactamente los mismos ficheros.
+
+### Golden set
+
+- `data/golden/queries.jsonl`: consultas (`query_id`, `type`, `theme`, `query`). Tipos: `paraphrase`,
+  `exact_term` y `multi_article`. Las consultas están en inglés, como el corpus.
+- `data/golden/qrels.jsonl`: juicios de relevancia, **una línea por par consulta-artículo**
+  (`query_id`, `celex`, `article`, `grade`). Los escribe una persona; ningún LLM etiqueta.
+- **Escala:** 3 = el artículo responde directamente; 2 = aporta una parte sustancial; 1 = relacionado,
+  pero tangencial; lo no escrito = no relevante. El grado mide cuánto cubre ese artículo por sí solo,
+  no el orden en que deba aparecer; puede haber varios artículos con el mismo grado.
+- **Método:** consultas escritas «desde el artículo», juzgadas leyendo el texto, sin ayuda de ningún
+  buscador, y congeladas antes de ejecutar ninguna recuperación.
+- **Limitaciones:** conjunto pequeño (30–50 consultas) y un solo anotador; el método «desde el artículo»
+  favorece ligeramente el acierto del artículo de origen. Las diferencias pequeñas entre sistemas no
+  serán estadísticamente sólidas.
 
 ### Chunking
 

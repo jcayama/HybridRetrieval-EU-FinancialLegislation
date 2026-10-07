@@ -29,6 +29,18 @@ def words(text: str) -> list[str]:
     return re.findall(r"[a-z0-9]+", text.lower())
 
 
+def stem(token: str) -> str:
+    """Raíz tosca (quita -ing, -es, -s) para que «stress tests» encaje con «stress testing»."""
+    for suffix in ("ing", "es", "s"):
+        if token.endswith(suffix) and len(token) - len(suffix) >= 3:
+            return token[: -len(suffix)]
+    return token
+
+
+def stemmed(tokens: list[str]) -> str:
+    return " ".join(stem(t) for t in tokens)
+
+
 def load_jsonl(path: Path) -> list[dict]:
     rows = []
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -109,12 +121,12 @@ def validate(queries: list[dict], qrels: list[dict], articles: dict[tuple[str, i
                     warnings.append(f"{qid}: la paráfrasis comparte la secuencia «{gram}» con el art. {key[1]} de {key[0]}")
                     break
         if q.get("type") == "exact_term" and qwords:
-            phrase = " ".join(qwords)
+            phrase = stemmed(qwords)
             for key, text in texts.items():
-                if phrase not in " ".join(text):
+                if phrase not in stemmed(text):
                     warnings.append(f"{qid}: el término «{q['query']}» no aparece en el texto del art. {key[1]} de {key[0]}")
             judged = set(texts)
-            others = [f"{a['celex']}/art.{a['article']}" for k, a in articles.items() if k not in judged and phrase in " ".join(words(a["text"]))]
+            others = [f"{a['celex']}/art.{a['article']}" for k, a in articles.items() if k not in judged and phrase in stemmed(words(a["text"]))]
             if others:
                 info.append(f"{qid}: el término aparece también en artículos sin juicio: {', '.join(others)} (revisa si deben tenerlo)")
 

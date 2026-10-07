@@ -1,6 +1,6 @@
 import pytest
 
-from scripts.golden import load_jsonl, validate, words
+from scripts.golden import load_jsonl, stem, validate, words
 
 ARTICLES = {
     ("C1", 1): {"celex": "C1", "article": 1, "title": "Alpha", "text": "Article 1. Alpha\nThe widget supervisor shall report every failure within twenty four hours."},
@@ -66,3 +66,10 @@ def test_load_jsonl_reports_line_number(tmp_path):
     path.write_text('{"a": 1}\n\n{mal}\n')
     with pytest.raises(ValueError, match=r"x\.jsonl:3"):
         load_jsonl(path)
+
+
+def test_exact_term_tolerates_plurals_and_gerunds():
+    articles = {("C1", 1): {"celex": "C1", "article": 1, "title": "A", "text": "Article 1. A\nRisk is monitored through appropriate stress testing procedures."}}
+    _, warnings, _ = validate([q("q001", "exact_term", "stress tests")], [r("q001", 1, 3)], articles)
+    assert not any("no aparece" in w for w in warnings)
+    assert stem("tests") == stem("testing") == "test"
