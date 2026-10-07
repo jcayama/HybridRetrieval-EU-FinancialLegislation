@@ -41,13 +41,33 @@ Requiere Python 3.12.
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install pre-commit
+pip install -r requirements-dev.txt
 pre-commit install   # imprescindible: activa el detector de secretos
 cp .env.example .env # y rellena tus valores; .env nunca se versiona
 ```
 
 El hook de pre-commit ejecuta [gitleaks](https://github.com/gitleaks/gitleaks), detecta claves
 privadas y bloquea cualquier fichero `.env` (salvo `.env.example`).
+
+Los tests se ejecutan con `pytest` y el estilo se comprueba con `ruff check .`.
+
+## Comandos
+
+Todas las etapas del pipeline se lanzan desde un único punto de entrada, `cli.py`, desde la raíz
+del repositorio y con el entorno virtual activo. `python cli.py --help` lista los comandos
+disponibles. Se irán añadiendo conforme se implementen las etapas.
+
+| Comando | Qué hace |
+|---------|----------|
+| `python cli.py download-corpus` | Descarga el corpus y **verifica** que el SHA-256 de cada acto coincide con `data/corpus.sha256` y que el número de artículos es el esperado (71, 64 y 113). Falla si algo no coincide. |
+| `python cli.py download-corpus --freeze` | Igual, pero **escribe** `data/corpus.sha256`. Solo se usa la primera vez, para congelar el corpus. |
+
+### Datos
+
+- `data/raw/`: HTML descargado de EUR-Lex. **No se versiona**: se vuelve a descargar y se valida
+  con el hash.
+- `data/corpus.sha256`: hashes congelados del corpus. Sí se versiona; es lo que garantiza que
+  todos trabajan con el mismo texto.
 
 ## Atribución y licencia del corpus
 

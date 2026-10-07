@@ -1,6 +1,7 @@
 """Descarga y congela el corpus de EUR-Lex (texto publicado, vía API Cellar).
 
 Uso:
+    python cli.py download-corpus [--freeze]     # recomendado
     python -m scripts.download_corpus            # descarga y VERIFICA contra data/corpus.sha256
     python -m scripts.download_corpus --freeze   # descarga y ESCRIBE data/corpus.sha256
 
@@ -55,7 +56,7 @@ def sha256_bytes(data: bytes) -> str:
 
 def count_articles(html: bytes | str) -> int:
     """Cuenta los `div.eli-subdivision` con id `art_N` (N numérico), sin repetidos."""
-    soup = BeautifulSoup(html, "lxml")
+    soup = BeautifulSoup(html, "xml")
     ids = {div["id"] for div in soup.select("div.eli-subdivision[id]") if ART_ID.match(div["id"])}
     return len(ids)
 
@@ -88,11 +89,8 @@ def fetch(client: httpx.Client, url: str, retries: int = 3) -> bytes:
     raise RuntimeError(f"No se pudo descargar {url}")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--freeze", action="store_true", help="escribe data/corpus.sha256 con los hashes descargados")
-    args = parser.parse_args()
-
+def run(freeze: bool = False) -> int:
+    """Descarga el corpus. Devuelve 0 si todo es correcto y 1 si hay algún fallo."""
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     frozen = read_hashes()
     new_hashes: dict[str, str] = {}
@@ -110,7 +108,7 @@ def main() -> int:
 
             if articles != act.expected_articles:
                 failures.append(f"{act.celex}: {articles} artículos, se esperaban {act.expected_articles}")
-            if not args.freeze:
+            if not freeze:
                 if act.filename not in frozen:
                     failures.append(f"{act.filename}: sin hash congelado (usa --freeze la primera vez)")
                 elif frozen[act.filename] != digest:
@@ -119,12 +117,18 @@ def main() -> int:
     if failures:
         print("\nFALLOS:", *failures, sep="\n  - ", file=sys.stderr)
         return 1
-    if args.freeze:
+    if freeze:
         write_hashes(new_hashes)
         print(f"\nHashes congelados en {HASH_FILE.relative_to(ROOT)}")
     else:
         print("\nVerificación correcta: hashes y recuento de artículos coinciden.")
     return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--freeze", action="store_true", help="escribe data/corpus.sha256 con los hashes descargados")
+    return run(parser.parse_args().freeze)
 
 
 if __name__ == "__main__":
