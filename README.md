@@ -85,6 +85,9 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 - **Escala:** 3 = el artículo responde directamente; 2 = aporta una parte sustancial; 1 = relacionado,
   pero tangencial; lo no escrito = no relevante. El grado mide cuánto cubre ese artículo por sí solo,
   no el orden en que deba aparecer; puede haber varios artículos con el mismo grado.
+- **Criterio de inclusión:** un artículo recibe juicio si **trata** el concepto de la consulta, no por
+  mencionarlo de pasada. Por eso hay artículos que contienen el término de una consulta `exact_term`
+  y no tienen juicio; `validate-golden` los lista como información para revisión.
 - **Método:** consultas escritas «desde el artículo», juzgadas leyendo el texto, sin ayuda de ningún
   buscador, y congeladas antes de ejecutar ninguna recuperación.
 - **Limitaciones:** conjunto pequeño (30–50 consultas) y un solo anotador; el método «desde el artículo»

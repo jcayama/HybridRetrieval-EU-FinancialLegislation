@@ -23,3 +23,18 @@
 {"query_id": "q023", "type": "paraphrase", "theme": "aifmd_control_non_listed", "query": "What must a fund disclose when it takes over a private company?"}
 {"query_id": "q024", "type": "exact_term", "theme": "aifmd_control_non_listed", "query": "carried interest"}
 {"query_id": "q025", "type": "exact_term", "theme": "aifmd_authorisation", "query": "sub-delegation"}
+{"query_id": "q026", "type": "paraphrase", "theme": "aiact_prohibited", "query": "Which uses of artificial intelligence are completely banned in the EU?"}
+{"query_id": "q027", "type": "paraphrase", "theme": "aiact_transparency", "query": "Do people have to be told when they are dealing with a machine or looking at synthetic content?"}
+{"query_id": "q028", "type": "paraphrase", "theme": "aiact_penalties", "query": "How large can the fines be for companies that break the AI rules?"}
+{"query_id": "q029", "type": "paraphrase", "theme": "aiact_sandboxes", "query": "Can companies try out new AI systems under official supervision before placing them on the market?"}
+{"query_id": "q030", "type": "exact_term", "theme": "aiact_gpai", "query": "floating point operations"}
+{"query_id": "q031", "type": "exact_term", "theme": "aiact_transparency", "query": "deep fake"}
+{"query_id": "q032", "type": "exact_term", "theme": "aiact_conformity", "query": "notified body"}
+{"query_id": "q033", "type": "multi_article", "theme": "aiact_gpai", "query": "What must providers of general-purpose AI models do, and what extra duties apply when the model poses systemic risk?"}
+{"query_id": "q034", "type": "paraphrase", "theme": "dora_ict_risk", "query": "Do small firms have to meet the same ICT risk rules as large banks?"}
+{"query_id": "q035", "type": "paraphrase", "theme": "dora_third_parties", "query": "What must a financial firm plan for if it has to stop using an ICT provider?"}
+{"query_id": "q036", "type": "exact_term", "theme": "dora_third_parties", "query": "register of information"}
+{"query_id": "q037", "type": "exact_term", "theme": "dora_third_parties", "query": "exit strategies"}
+{"query_id": "q038", "type": "exact_term", "theme": "dora_ict_risk", "query": "legacy ICT"}
+{"query_id": "q039", "type": "multi_article", "theme": "dora_ict_risk", "query": "How must a financial entity protect, back up and recover its data and systems?"}
+{"query_id": "q040", "type": "multi_article", "theme": "dora_ict_risk", "query": "What governance responsibilities does a firm's senior management carry for ICT risk?"}

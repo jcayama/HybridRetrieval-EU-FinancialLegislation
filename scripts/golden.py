@@ -30,7 +30,9 @@ def words(text: str) -> list[str]:
 
 
 def stem(token: str) -> str:
-    """Raíz tosca (quita -ing, -es, -s) para que «stress tests» encaje con «stress testing»."""
+    """Raíz tosca (quita -ing, -es, -s y trata -ies como -y) para que «stress tests» encaje con «stress testing»."""
+    if token.endswith("ies") and len(token) > 4:
+        return token[:-3] + "y"
     for suffix in ("ing", "es", "s"):
         if token.endswith(suffix) and len(token) - len(suffix) >= 3:
             return token[: -len(suffix)]

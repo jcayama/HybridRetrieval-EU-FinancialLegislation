@@ -73,3 +73,8 @@ def test_exact_term_tolerates_plurals_and_gerunds():
     _, warnings, _ = validate([q("q001", "exact_term", "stress tests")], [r("q001", 1, 3)], articles)
     assert not any("no aparece" in w for w in warnings)
     assert stem("tests") == stem("testing") == "test"
+
+
+def test_stem_treats_ies_as_y():
+    assert stem("bodies") == stem("body") == "body"
+    assert stem("ies") == "ies"  # palabras demasiado cortas se dejan como están
