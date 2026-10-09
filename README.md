@@ -106,6 +106,24 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 - **Evaluación:** los juicios de relevancia se darán por artículo (`celex` + `article`), de modo que
   ambas estrategias se miden con los mismos juicios.
 
+## Evaluación
+
+Las métricas viven en `scripts/metrics.py` como funciones puras, con tests hechos a mano
+(`tests/test_metrics.py`). Decisiones fijadas **antes** de ejecutar ninguna recuperación:
+
+- **Unidad:** el artículo. Los rankings de chunks (ventanas) se convierten a artículos distintos,
+  conservando la mejor posición de cada uno.
+- **Relevante** (Recall y MRR): grado >= 2. El grado 1 solo cuenta en nDCG.
+- **Métricas:** Recall@1, @3, @5 y @10, MRR@10 y nDCG@10 con ganancia lineal (3, 2, 1). La ganancia
+  exponencial (7, 3, 1) queda como análisis de sensibilidad.
+- **Incertidumbre:** bootstrap pareado sobre consultas (10.000 remuestras, semilla fija, intervalo
+  percentil del 95 %), también por tipo de consulta. Con 15, 15 y 10 consultas por tipo, los intervalos
+  serán anchos.
+
+Ejemplo hecho a mano (juicios A=3, B=2, C=1; ranking X, B, A, Y, C con X e Y irrelevantes):
+Recall@1 = 0, Recall@2 = 0,5, Recall@3 = 1, MRR = 0,5 y nDCG@5 = 0,6612
+(DCG = 2/log2(3) + 3/log2(4) + 1/log2(6) = 3,1487; ideal A, B, C = 4,7619).
+
 ## Atribución y licencia del corpus
 
 Los textos legislativos proceden de [EUR-Lex](https://eur-lex.europa.eu/), © Unión Europea,
