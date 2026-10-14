@@ -66,7 +66,7 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 | `python cli.py show-article <acto> <N>` | Muestra el texto completo de un artículo, tal y como se indexa. |
 | `python cli.py validate-golden` | Valida el golden set: formato, que los artículos existen, grados 1–3, consultas sin juicios; muestra avisos de revisión y el reparto por tipo. Falla si hay errores o si el golden set congelado se modificó. |
 | `python cli.py freeze-golden` | Congela el golden set (SHA-256 en `data/golden/golden.sha256`). Solo con el conjunto completo. |
-| `python cli.py compare <A> <B> [--metric ndcg@10]` | Diferencia pareada A − B entre dos resultados de `results/` (p. ej. `bm25_window fts_window`), con intervalo bootstrap global y por tipo de consulta. Se niega si los resultados vienen de golden sets distintos. |
+| `python cli.py compare <A> <B> [--metric ndcg@10] [--bonferroni N]` | Diferencia pareada A − B entre dos resultados de `results/` (p. ej. `bm25_window fts_window`), con intervalo bootstrap global y por tipo de consulta (y, con `--bonferroni N`, el global corregido para N comparaciones). Se niega si los resultados vienen de golden sets distintos. |
 | `python cli.py embed [--verify]` | Calcula los embeddings de chunks y consultas con el modelo fijado y los guarda en `data/embeddings/`. Con `--verify` no recalcula: comprueba que una muestra se reproduce con lo guardado. Requiere `requirements-embeddings.txt`. |
 | `python cli.py init-db` | Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el `.env`. |
 | `python cli.py load-db` | Carga `data/chunks/*.jsonl` en Postgres. Idempotente: reemplaza lo anterior y registra el hash de los ficheros cargados. |
@@ -81,6 +81,7 @@ python cli.py init-db
 python cli.py load-db
 python cli.py evaluate --system fts
 python cli.py evaluate --system dense
+python cli.py evaluate --system hybrid
 ```
 
 - El puerto es el **5433** (configurable con `POSTGRES_PORT`) para no chocar con un Postgres local en el 5432.
@@ -93,7 +94,10 @@ python cli.py evaluate --system dense
   con **búsqueda exacta, sin índice aproximado**; desempate por `chunk_id`. `load-db` carga también los vectores de
   `data/embeddings/` (se niega si están desfasados) y `evaluate --system dense` usa los vectores precalculados de las
   consultas del golden set, así que no necesita torch. La extensión `vector` se instala siempre en el esquema `public`.
-- `evaluate --system fts|dense` se niega a ejecutarse si los chunks (y, en denso, los embeddings) cargados en la base de datos no coinciden con
+- **Híbrido** (`scripts/rrf.py` y `scripts/hybrid.py`): RRF con k = 60 sobre los rankings de FTS y denso, cada uno con
+  sus 200 mejores chunks. La fusión es **a nivel de chunk** (por `chunk_id`) y después se convierte a artículos
+  distintos, igual que en los demás sistemas. RRF es una función pura con tests (ejemplo calculado a mano).
+- `evaluate --system fts|dense|hybrid` se niega a ejecutarse si los chunks (y, en denso, los embeddings) cargados en la base de datos no coinciden con
   `data/chunks/` (hay que repetir `load-db`).
 - Los tests de base de datos usan un esquema temporal aislado y se saltan solos si no hay Postgres.
 

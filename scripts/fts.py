@@ -15,7 +15,7 @@ from scripts.metrics import Article
 
 SEARCH_SQL = """
 WITH q AS (SELECT to_tsquery('english', %(query)s) AS query)
-SELECT c.celex, c.article
+SELECT c.chunk_id, c.celex, c.article
 FROM chunks c, q
 WHERE c.strategy = %(strategy)s AND c.tsv @@ q.query
 ORDER BY ts_rank_cd(c.tsv, q.query) DESC, c.chunk_id
@@ -43,10 +43,14 @@ class FtsIndex:
             raise RuntimeError(f"los chunks '{chunking}' de la base de datos no coinciden con data/chunks; ejecuta `python cli.py load-db`")
         self.info = {"postgres": version.split(" on ")[0], "regconfig": "english"}
 
-    def search(self, query: str, depth: int) -> list[Article]:
+    def search_chunks(self, query: str, depth: int) -> list[tuple[str, Article]]:
+        """Los `depth` mejores chunks como (chunk_id, artículo), de mejor a peor."""
         tsquery = build_or_query(query)
         if tsquery is None:
             return []
         with db.connect(self.schema) as conn:
             rows = conn.execute(SEARCH_SQL, {"query": tsquery, "strategy": self.chunking, "depth": depth}).fetchall()
-        return [(celex, article) for celex, article in rows]
+        return [(chunk_id, (celex, article)) for chunk_id, celex, article in rows]
+
+    def search(self, query: str, depth: int) -> list[Article]:
+        return [article for _, article in self.search_chunks(query, depth)]

@@ -78,9 +78,10 @@ def load_db_command():
 @click.argument("result_a")
 @click.argument("result_b")
 @click.option("--metric", default="ndcg@10", show_default=True, help="recall@1|3|5|10, ndcg@10 o mrr@10")
-def compare_command(result_a: str, result_b: str, metric: str):
+@click.option("--bonferroni", "family_size", type=int, default=None, help="Añade el IC global con corrección de Bonferroni para N comparaciones.")
+def compare_command(result_a: str, result_b: str, metric: str, family_size: int | None):
     """Diferencia pareada A − B (con IC bootstrap) entre dos resultados de results/, p. ej. bm25_window fts_window."""
-    sys.exit(compare.run(result_a, result_b, metric))
+    sys.exit(compare.run(result_a, result_b, metric, family_size))
 
 
 @cli.command("embed")

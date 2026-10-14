@@ -15,6 +15,8 @@ from scripts.dense import DenseIndex, precomputed_query_embedder
 from scripts.download_corpus import ROOT, read_hashes, sha256_bytes
 from scripts.fts import FtsIndex
 from scripts.golden import HASH_FILE, QUERIES_FILE, check_frozen, load_jsonl
+from scripts.hybrid import HybridIndex
+from scripts.hybrid import K as RRF_K
 from scripts.metrics import Run, dedupe_to_articles, evaluate_run, load_qrels, mean_metrics, paired_bootstrap
 
 RESULTS_DIR = ROOT / "results"
@@ -24,6 +26,7 @@ SYSTEMS = {
     "bm25": lambda chunking, chunks, sha256: Bm25Index(chunks),
     "fts": lambda chunking, chunks, sha256: FtsIndex(chunking, sha256),
     "dense": lambda chunking, chunks, sha256: DenseIndex(chunking, sha256, precomputed_query_embedder()),
+    "hybrid": lambda chunking, chunks, sha256: HybridIndex(chunking, sha256, precomputed_query_embedder()),
 }
 CONFIGS = {
     "bm25": {"k1": K1, "b": B, "epsilon": EPSILON, "tokenizer": "lowercase alphanumeric, no stemming, no stopwords"},
@@ -35,6 +38,7 @@ CONFIGS = {
         "similarity": "cosine (<=>) on L2-normalized vectors, exact scan, no ANN index",
         "tie_break": "chunk_id",
     },
+    "hybrid": {"fusion": "RRF", "k": RRF_K, "inputs": ["fts", "dense"], "fused_at": "chunk level, then converted to distinct articles", "tie_break": "chunk_id"},
 }
 DEPTH = 200  # chunks recuperados antes de convertirlos a artículos
 TOP_ARTICLES = 10  # artículos distintos que se evalúan

@@ -16,7 +16,7 @@ from scripts.golden import QUERIES_FILE, load_jsonl
 from scripts.metrics import Article
 
 SEARCH_SQL = """
-SELECT celex, article
+SELECT chunk_id, celex, article
 FROM chunks
 WHERE strategy = %(strategy)s AND embedding IS NOT NULL
 ORDER BY embedding <=> %(vector)s::vector, chunk_id
@@ -64,8 +64,12 @@ class DenseIndex:
             "embeddings_sha256": expected,
         }
 
-    def search(self, query: str, depth: int) -> list[Article]:
+    def search_chunks(self, query: str, depth: int) -> list[tuple[str, Article]]:
+        """Los `depth` mejores chunks como (chunk_id, artículo), de mejor a peor."""
         vector = db.to_vector_literal(self.embed_query(query))
         with db.connect(self.schema) as conn:
             rows = conn.execute(SEARCH_SQL, {"strategy": self.chunking, "vector": vector, "depth": depth}).fetchall()
-        return [(celex, article) for celex, article in rows]
+        return [(chunk_id, (celex, article)) for chunk_id, celex, article in rows]
+
+    def search(self, query: str, depth: int) -> list[Article]:
+        return [article for _, article in self.search_chunks(query, depth)]

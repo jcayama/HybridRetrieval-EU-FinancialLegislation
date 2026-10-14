@@ -23,7 +23,7 @@ def load_result(name: str, results_dir: Path = RESULTS_DIR) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def compare(report_a: dict, report_b: dict, metric: str, query_types: dict[str, str]) -> dict[str, dict]:
+def compare(report_a: dict, report_b: dict, metric: str, query_types: dict[str, str], family_size: int | None = None) -> dict[str, dict]:
     if report_a["golden_sha256"] != report_b["golden_sha256"]:
         raise ValueError("los resultados se calcularon sobre golden sets distintos")
     if set(report_a["per_query"]) != set(report_b["per_query"]):
@@ -36,6 +36,17 @@ def compare(report_a: dict, report_b: dict, metric: str, query_types: dict[str, 
         a = {q: report_a["per_query"][q][metric] for q in ids}
         b = {q: report_b["per_query"][q][metric] for q in ids}
         boot = paired_bootstrap(a, b)
+        if name == "overall" and family_size:  # corrección de Bonferroni para una familia de `family_size` comparaciones
+            adjusted = paired_bootstrap(a, b, confidence=1 - 0.05 / family_size)
+            out[f"overall (Bonferroni, {family_size} comparaciones)"] = {
+                "n": len(ids),
+                "mean_diff": adjusted.mean_diff,
+                "low": adjusted.low,
+                "high": adjusted.high,
+                "a_better": sum(a[q] > b[q] for q in ids),
+                "b_better": sum(a[q] < b[q] for q in ids),
+                "ties": sum(a[q] == b[q] for q in ids),
+            }
         out[name] = {
             "n": len(ids),
             "mean_diff": boot.mean_diff,
@@ -52,19 +63,19 @@ def format_comparison(name_a: str, name_b: str, metric: str, result: dict) -> st
     lines = [f"\n{metric}: {name_a} − {name_b}  (IC 95 % bootstrap pareado sobre consultas)"]
     for group, r in result.items():
         lines.append(
-            f"  {group:<14} n={r['n']:>2}  dif={r['mean_diff']:+.3f}  IC [{r['low']:+.3f}, {r['high']:+.3f}]  "
+            f"  {group:<38} n={r['n']:>2}  dif={r['mean_diff']:+.3f}  IC [{r['low']:+.3f}, {r['high']:+.3f}]  "
             f"{name_a} mejor en {r['a_better']}, {name_b} mejor en {r['b_better']}, igual en {r['ties']}"
         )
     return "\n".join(lines)
 
 
-def run(name_a: str, name_b: str, metric: str) -> int:
+def run(name_a: str, name_b: str, metric: str, family_size: int | None = None) -> int:
     try:
         a, b = load_result(name_a), load_result(name_b)
         if metric not in next(iter(a["per_query"].values())):
             raise ValueError(f"métrica desconocida: {metric}")
         types = {q["query_id"]: q["type"] for q in load_jsonl(QUERIES_FILE)}
-        print(format_comparison(name_a, name_b, metric, compare(a, b, metric, types)))
+        print(format_comparison(name_a, name_b, metric, compare(a, b, metric, types, family_size)))
     except (FileNotFoundError, ValueError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
