@@ -68,6 +68,7 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 | `python cli.py freeze-golden` | Congela el golden set (SHA-256 en `data/golden/golden.sha256`). Solo con el conjunto completo. |
 | `python cli.py compare <A> <B> [--metric ndcg@10] [--bonferroni N]` | Diferencia pareada A − B entre dos resultados de `results/` (p. ej. `bm25_window fts_window`), con intervalo bootstrap global y por tipo de consulta (y, con `--bonferroni N`, el global corregido para N comparaciones). Se niega si los resultados vienen de golden sets distintos. |
 | `python cli.py embed [--verify]` | Calcula los embeddings de chunks y consultas con el modelo fijado y los guarda en `data/embeddings/`. Con `--verify` no recalcula: comprueba que una muestra se reproduce con lo guardado. Requiere `requirements-embeddings.txt`. |
+| `python cli.py bench-index [--size N] [--skip-synthetic]` | Compara HNSW e IVFFlat (recall y latencia) en un esquema temporal que se borra al terminar; guarda `results/index_benchmark.json`. |
 | `python cli.py init-db` | Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el `.env`. |
 | `python cli.py load-db` | Carga `data/chunks/*.jsonl` en Postgres. Idempotente: reemplaza lo anterior y registra el hash de los ficheros cargados. |
 | `python cli.py evaluate [--system bm25] [--chunking article\|window\|both]` | Evalúa un sistema sobre el golden set **congelado** (se niega si no está congelado o fue modificado) y guarda `results/<sistema>_<chunking>.json` con las métricas por consulta, por tipo y con intervalos bootstrap. |
@@ -146,6 +147,47 @@ python cli.py evaluate --system hybrid
   Es una propiedad de «un chunk por artículo» con un modelo de contexto fijo.
 - Los vectores pueden diferir en el último decimal entre plataformas; por eso `--verify` exige coseno >= 0,9999
   y no igualdad bit a bit.
+
+- **Sin pooling (decisión explícita):** los juicios son los independientes de la fase 1; no se ejecutó ninguna
+  ronda de pooling. Un artículo relevante que el golden set no juzgó cuenta como fallo del sistema que lo
+  recupera, así que **el recall absoluto puede estar subestimado**, y no necesariamente por igual en todos los
+  sistemas: pueden salir perjudicados los que recuperan artículos relevantes distintos de los juzgados. Medido:
+  el top-10 de los 10 sistemas evaluados (5 × 2 chunkings) deja **913 pares consulta-artículo sin juicio**, que
+  cubren 217 de los 248 artículos del corpus; no se estimó qué fracción de ellos es relevante. Juzgarlos
+  todos habría supuesto unas 723.000 palabras de lectura, y se descartó por coste. Las diferencias entre
+  sistemas deben leerse con esta cautela.
+
+### Índices aproximados: HNSW frente a IVFFlat
+
+`python cli.py bench-index` mide recall frente a la **búsqueda exacta de Postgres** (la referencia) y latencia, con
+parámetros fijados antes de medir: HNSW `m=16`, `ef_construction=64` y barrido de `ef_search`; IVFFlat con
+`lists = filas/1000` (guía de pgvector) y barrido de `probes`. Las cifras completas están en
+`results/index_benchmark.json`. Dos partes, con límites distintos:
+
+- **Corpus real (719 ventanas y 248 artículos):** a esta escala **la búsqueda exacta es tan rápida como
+  cualquier índice** (≈0,7–0,8 ms en todos los casos, donde domina el coste fijo de la consulta), así que los
+  índices no aportan nada en latencia. Sí muestran recall: HNSW con `ef_search=40` ≥ 0,995 e IVFFlat con
+  `probes=1` entre 0,56 y 0,58, con consultas que devuelven menos de 10 resultados.
+- **Escala sintética (100.000 vectores):** datos **sintéticos** (perturbaciones de vectores reales con coseno
+  0,93 respecto a su origen, calibrado con el coseno a los 10 vecinos más cercanos de las ventanas reales). La
+  búsqueda exacta tarda ≈33 ms; HNSW con `ef_search=40` ≈1,4 ms con recall ≈0,99; IVFFlat con `probes=1`
+  ≈1,5 ms con recall ≈0,998. **No se puede concluir de aquí que IVFFlat sea mejor:** estos datos son 719
+  «nubes» muy marcadas, que favorecen a IVFFlat, y en el corpus real IVFFlat con `probes=1` rindió mucho peor.
+  Lo que sí muestra la comparación es que el recall de HNSW fue ≥ 0,95 en los tres conjuntos con cualquier
+  `ef_search`, mientras que el de IVFFlat depende mucho de los datos y de `probes`.
+- **Varianza entre construcciones:** reconstruir el grafo HNSW (sin paralelismo) dio recall 0,993 y 0,975 con
+  `ef_search=40`. Las diferencias entre valores de `ef_search` cercanos son menores que esa varianza y no deben
+  interpretarse. Los intervalos del benchmark cubren la variabilidad entre consultas, no entre construcciones.
+- **Efecto operativo:** HNSW devuelve como mucho `ef_search` filas. Con `ef_search=10`, el nDCG@10 del
+  golden set con ventanas cae de 0,644 a 0,571, porque el ranking no llega a 10 artículos distintos; con 40
+  coincide con la búsqueda exacta. IVFFlat con `probes=1` pierde ≈0,2 de nDCG.
+- **Decisión para este proyecto:** con ~1.000 vectores se mantiene la búsqueda **exacta** (y el regression gate
+  de la CI usará búsqueda exacta). Si el corpus creciera, la recomendación sería HNSW con `ef_search >= 40`.
+- **Infraestructura:** en contenedores Docker (`/dev/shm` de 64 MB por defecto) una construcción paralela con
+  `maintenance_work_mem` alto falla con «could not resize shared memory segment»; el benchmark construye sin
+  paralelismo. La CI de GitHub tendrá el mismo límite.
+- **Latencia:** medida extremo a extremo desde Python (incluye serializar el vector de 384 números), con
+  `shared_buffers` de 128 MB y el contenedor compartiendo CPU con otros procesos de la máquina.
 
 ### Chunking
 

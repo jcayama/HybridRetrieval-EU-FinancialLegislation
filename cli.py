@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import browse_corpus, chunk_corpus, compare, db, embeddings, evaluate, golden
+from scripts import bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, evaluate, golden
 from scripts import download_corpus as corpus
 
 
@@ -89,6 +89,15 @@ def compare_command(result_a: str, result_b: str, metric: str, family_size: int 
 def embed_command(check: bool):
     """Calcula los embeddings (modelo fijado) y los guarda en data/embeddings/. Requiere requirements-embeddings.txt."""
     sys.exit(embeddings.run(check))
+
+
+@cli.command("bench-index")
+@click.option("--size", type=int, default=bench_index.SYNTHETIC_SIZE, show_default=True, help="Vectores sintéticos.")
+@click.option("--queries", "n_queries", type=int, default=bench_index.SYNTHETIC_QUERIES, show_default=True)
+@click.option("--skip-synthetic", is_flag=True, help="Solo el corpus real.")
+def bench_index_command(size: int, n_queries: int, skip_synthetic: bool):
+    """Compara HNSW e IVFFlat (recall y latencia) en un esquema temporal; guarda results/index_benchmark.json."""
+    sys.exit(bench_index.run(size, n_queries, skip_synthetic))
 
 
 if __name__ == "__main__":
