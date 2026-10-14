@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, evaluate, gate, golden
+from scripts import bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, evaluate, gate, golden, report
 from scripts import download_corpus as corpus
 
 
@@ -118,6 +118,13 @@ def calibrate_gate_command(write_thresholds: bool):
 def gate_margin_command(margin: float):
     """Fija a mano el margen del gate (>= 0,01) y recalcula los umbrales desde la calibración guardada."""
     sys.exit(gate.run_set_margin(margin))
+
+
+@cli.command("report")
+@click.option("--check", is_flag=True, help="No escribe: falla si la sección de resultados del README está desactualizada.")
+def report_command(check: bool):
+    """Genera la sección de resultados del README a partir de results/ (o la comprueba con --check)."""
+    sys.exit(report.run(check))
 
 
 if __name__ == "__main__":

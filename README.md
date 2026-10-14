@@ -1,10 +1,14 @@
 # Evaluación de recuperación híbrida sobre legislación financiera de la UE
 
 Mini-proyecto que compara estrategias de recuperación sobre Postgres + pgvector y las evalúa
-con un golden set congelado. Todas las cifras de este README saldrán de scripts reproducibles
-del repositorio.
+con un golden set congelado. Las tablas de la sección «Resultados» las genera `python cli.py report` a partir de los
+ficheros de `results/`, y un test comprueba que el README no se desfasa. Otras cifras del texto (por ejemplo, las del
+truncamiento de embeddings o las de HNSW con RLS) están **transcritas** de la salida de scripts del repositorio, y cada
+sección indica de cuál.
 
-> **Estado: en construcción.** Todavía no hay resultados publicados.
+> **Estado:** los seis criterios de «hecho» están implementados y medidos (ver «Resultados»). Pendiente antes de
+> publicar: licencia del código, aviso legal de EUR-Lex y la primera ejecución real de la CI en GitHub Actions, que
+> todavía no se ha producido.
 
 ## Qué se evaluará
 
@@ -33,6 +37,118 @@ El corpus se congela guardando el SHA-256 de cada descarga y versionando los chu
 ## Datos y privacidad
 
 Solo se usan datos públicos o sintéticos. No hay datos de clientes en este repositorio.
+
+## Resultados
+
+Qué leer de esta sección y qué no:
+
+- **Una sola persona juzgó la relevancia** de **40 consultas** sobre un corpus de 248 artículos, sin pooling, así que
+  las diferencias pequeñas entre sistemas **no son estadísticamente sólidas**. Los intervalos son de bootstrap pareado
+  sobre consultas y no recogen la variabilidad entre construcciones de un índice aproximado.
+- Las **comparaciones principales** se declararon antes de calcularlas; las **exploratorias** (ideas posteriores a ver
+  resultados) se informan aparte y con una corrección más estricta. Con tantas comparaciones, que alguna excluya el
+  cero al 95 % es esperable por azar: por eso se muestra también la corrección de Bonferroni.
+- Las métricas usan relevante = grado ≥ 2 para Recall y MRR, y ganancia lineal en nDCG (ver «Evaluación»).
+- Todo el bloque siguiente lo escribe `python cli.py report`; `python cli.py report --check` falla si está
+  desactualizado.
+
+<!-- results:start -->
+#### Métricas globales (40 consultas)
+
+| Sistema | Chunking | Recall@1 | Recall@3 | Recall@5 | Recall@10 | nDCG@10 [IC 95 %] | MRR@10 |
+|---|---|---|---|---|---|---|---|
+| BM25 | artículo | 0,252 | 0,431 | 0,598 | 0,727 | 0,545 [0,443, 0,647] | 0,544 |
+| BM25 | ventanas | 0,310 | 0,552 | 0,585 | 0,744 | 0,584 [0,475, 0,689] | 0,608 |
+| FTS Postgres | artículo | 0,237 | 0,371 | 0,496 | 0,675 | 0,483 [0,377, 0,593] | 0,464 |
+| FTS Postgres | ventanas | 0,242 | 0,369 | 0,523 | 0,762 | 0,519 [0,420, 0,619] | 0,507 |
+| Denso (bge-small) | artículo | 0,327 | 0,500 | 0,604 | 0,690 | 0,555 [0,451, 0,658] | 0,623 |
+| Denso (bge-small) | ventanas | 0,377 | 0,598 | 0,640 | 0,771 | 0,644 [0,546, 0,740] | 0,688 |
+| Híbrido FTS + denso | artículo | 0,340 | 0,515 | 0,683 | 0,827 | 0,641 [0,555, 0,725] | 0,675 |
+| Híbrido FTS + denso | ventanas | 0,369 | 0,577 | 0,673 | 0,867 | 0,667 [0,575, 0,759] | 0,693 |
+| Híbrido BM25 + denso (exploratorio) | artículo | 0,356 | 0,510 | 0,644 | 0,767 | 0,615 [0,519, 0,709] | 0,696 |
+| Híbrido BM25 + denso (exploratorio) | ventanas | 0,365 | 0,613 | 0,690 | 0,831 | 0,672 [0,586, 0,759] | 0,726 |
+
+#### nDCG@10 por tipo de consulta
+
+| Sistema | Chunking | Paráfrasis (15) | Término exacto (15) | Multi-artículo (10) |
+|---|---|---|---|---|
+| BM25 | artículo | 0,384 | 0,727 | 0,515 |
+| BM25 | ventanas | 0,378 | 0,830 | 0,521 |
+| FTS Postgres | artículo | 0,425 | 0,617 | 0,369 |
+| FTS Postgres | ventanas | 0,366 | 0,613 | 0,606 |
+| Denso (bge-small) | artículo | 0,688 | 0,360 | 0,649 |
+| Denso (bge-small) | ventanas | 0,666 | 0,619 | 0,649 |
+| Híbrido FTS + denso | artículo | 0,702 | 0,575 | 0,651 |
+| Híbrido FTS + denso | ventanas | 0,640 | 0,665 | 0,710 |
+| Híbrido BM25 + denso (exploratorio) | artículo | 0,613 | 0,592 | 0,652 |
+| Híbrido BM25 + denso (exploratorio) | ventanas | 0,566 | 0,770 | 0,685 |
+
+#### Comparaciones principales (nDCG@10 global, bootstrap pareado sobre consultas)
+
+- Con chunking por artículo, la cifra global más alta de nDCG@10 entre los sistemas principales es la de **Híbrido FTS + denso** (0,641).
+- Con chunking por ventanas, la cifra global más alta de nDCG@10 entre los sistemas principales es la de **Híbrido FTS + denso** (0,667).
+- Que una cifra sea la más alta **no implica** que la diferencia sea detectable: cuentan las comparaciones de abajo, no el orden de las tablas.
+- De las 15 comparaciones principales, **5** excluyen el cero con un IC del 95 % y **2** lo siguen excluyendo tras la corrección de Bonferroni para 15.
+- Las que sobreviven a la corrección son: **Híbrido FTS + denso (artículo) − FTS Postgres (artículo)**; **Híbrido FTS + denso (ventanas) − FTS Postgres (ventanas)**.
+- Excluyen el cero solo al 95 %, sin corrección (indicios, no hallazgos): Denso (bge-small) (ventanas) − FTS Postgres (ventanas); Denso (bge-small) (ventanas) − Denso (bge-small) (artículo); Híbrido FTS + denso (artículo) − Denso (bge-small) (artículo).
+
+| Comparación (A − B) | Dif. nDCG@10 | IC 95 % | IC Bonferroni (15) | Excluye 0 (95 %) | Excluye 0 (Bonferroni) |
+|---|---|---|---|---|---|
+| BM25 (artículo) − FTS Postgres (artículo) | +0,062 | [−0,039, +0,162] | [−0,096, +0,214] | no | no |
+| BM25 (ventanas) − FTS Postgres (ventanas) | +0,065 | [−0,026, +0,163] | [−0,065, +0,212] | no | no |
+| FTS Postgres (ventanas) − FTS Postgres (artículo) | +0,036 | [−0,045, +0,117] | [−0,087, +0,158] | no | no |
+| BM25 (ventanas) − BM25 (artículo) | +0,039 | [−0,005, +0,080] | [−0,029, +0,101] | no | no |
+| Denso (bge-small) (artículo) − BM25 (artículo) | +0,010 | [−0,138, +0,152] | [−0,210, +0,218] | no | no |
+| Denso (bge-small) (ventanas) − BM25 (ventanas) | +0,061 | [−0,074, +0,191] | [−0,142, +0,254] | no | no |
+| Denso (bge-small) (artículo) − FTS Postgres (artículo) | +0,072 | [−0,081, +0,219] | [−0,161, +0,287] | no | no |
+| Denso (bge-small) (ventanas) − FTS Postgres (ventanas) | +0,125 | [+0,011, +0,233] | [−0,052, +0,285] | sí | no |
+| Denso (bge-small) (ventanas) − Denso (bge-small) (artículo) | +0,089 | [+0,014, +0,177] | [−0,014, +0,229] | sí | no |
+| Híbrido FTS + denso (artículo) − Denso (bge-small) (artículo) | +0,086 | [+0,015, +0,162] | [−0,021, +0,198] | sí | no |
+| Híbrido FTS + denso (ventanas) − Denso (bge-small) (ventanas) | +0,023 | [−0,048, +0,095] | [−0,081, +0,137] | no | no |
+| Híbrido FTS + denso (artículo) − FTS Postgres (artículo) | +0,158 | [+0,059, +0,255] | [+0,016, +0,300] | sí | **sí** |
+| Híbrido FTS + denso (ventanas) − FTS Postgres (ventanas) | +0,148 | [+0,068, +0,232] | [+0,025, +0,278] | sí | **sí** |
+| Híbrido FTS + denso (artículo) − BM25 (artículo) | +0,097 | [−0,016, +0,209] | [−0,072, +0,266] | no | no |
+| Híbrido FTS + denso (ventanas) − BM25 (ventanas) | +0,083 | [−0,033, +0,202] | [−0,093, +0,256] | no | no |
+
+#### Comparaciones exploratorias (ideas posteriores a ver los resultados)
+
+Corrección de Bonferroni sobre 21 (las 15 principales más estas 6). 1 de 6 excluyen el cero al 95 % y 0 tras la corrección.
+
+| Comparación (A − B) | Dif. nDCG@10 | IC 95 % | IC Bonferroni (21) | Excluye 0 (95 %) | Excluye 0 (Bonferroni) |
+|---|---|---|---|---|---|
+| Híbrido BM25 + denso (exploratorio) (artículo) − BM25 (artículo) | +0,070 | [−0,016, +0,154] | [−0,060, +0,198] | no | no |
+| Híbrido BM25 + denso (exploratorio) (artículo) − Denso (bge-small) (artículo) | +0,060 | [−0,022, +0,145] | [−0,068, +0,193] | no | no |
+| Híbrido BM25 + denso (exploratorio) (artículo) − Híbrido FTS + denso (artículo) | −0,026 | [−0,101, +0,037] | [−0,142, +0,064] | no | no |
+| Híbrido BM25 + denso (exploratorio) (ventanas) − BM25 (ventanas) | +0,089 | [+0,008, +0,166] | [−0,035, +0,213] | sí | no |
+| Híbrido BM25 + denso (exploratorio) (ventanas) − Denso (bge-small) (ventanas) | +0,028 | [−0,046, +0,104] | [−0,087, +0,145] | no | no |
+| Híbrido BM25 + denso (exploratorio) (ventanas) − Híbrido FTS + denso (ventanas) | +0,005 | [−0,072, +0,084] | [−0,115, +0,121] | no | no |
+
+#### Regression gate (margen 0,010, decisión manual)
+
+| Chunking | Métrica | Valor en la calibración | Umbral |
+|---|---|---|---|
+| artículo | recall@10 | 0,827 | 0,815 |
+| artículo | ndcg@10 | 0,641 | 0,630 |
+| ventanas | recall@10 | 0,867 | 0,855 |
+| ventanas | ndcg@10 | 0,667 | 0,655 |
+
+#### Índices aproximados (recall@10 frente a la búsqueda exacta y latencia mediana)
+
+| Conjunto | Método | Parámetros | Recall@10 | Latencia (ms) | Construcción (s) | Índice (MB) |
+|---|---|---|---|---|---|---|
+| Corpus real, ventanas (719 filas) | Exacta (referencia) | — | 1,000 | 0,78 | — | — |
+|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 0,995 | 0,84 | 0,1 | 1,5 |
+|  | IVFFlat (probes=1) | lists=27 | 0,562 | 0,77 | 0,0 | 1,3 |
+|  | IVFFlat (probes=10) | lists=27 | 0,963 | 0,74 | 0,0 | 1,3 |
+| Corpus real, artículo (248 filas) | Exacta (referencia) | — | 1,000 | 0,74 | — | — |
+|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 1,000 | 0,90 | 0,0 | 0,5 |
+|  | IVFFlat (probes=1) | lists=16 | 0,575 | 0,62 | 0,0 | 0,5 |
+|  | IVFFlat (probes=10) | lists=16 | 0,983 | 0,65 | 0,0 | 0,5 |
+| Sintético (100.000 filas) | Exacta (referencia) | — | 1,000 | 32,81 | — | — |
+|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 0,993 | 1,35 | 31,6 | 204,8 |
+|  | IVFFlat (probes=1) | lists=100 | 0,998 | 1,46 | 2,6 | 164,3 |
+|  | IVFFlat (probes=10) | lists=100 | 1,000 | 6,83 | 2,6 | 164,3 |
+<!-- results:end -->
 
 ## Desarrollo
 
@@ -72,6 +188,7 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 | `python cli.py gate` | Regression gate: falla si el híbrido (búsqueda exacta) cae bajo los umbrales de `data/gate/thresholds.json`. |
 | `python cli.py calibrate-gate [--write-thresholds]` | Recalcula ruido, sensibilidad a regresiones y umbrales (local; requiere torch). |
 | `python cli.py gate-margin X` | Fija a mano el margen del gate (≥ 0,01) y recalcula los umbrales desde la calibración guardada. |
+| `python cli.py report [--check]` | Genera la sección «Resultados» de este README (entre las marcas `results:start` y `results:end`) a partir de `results/`, `data/gate/` y `results/index_benchmark.json`. Con `--check` no escribe: falla si el README está desactualizado. |
 | `python cli.py init-db` | Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el `.env`. |
 | `python cli.py load-db` | Carga `data/chunks/*.jsonl` en Postgres. Idempotente: reemplaza lo anterior y registra el hash de los ficheros cargados. |
 | `python cli.py evaluate [--system bm25] [--chunking article\|window\|both]` | Evalúa un sistema sobre el golden set **congelado** (se niega si no está congelado o fue modificado) y guarda `results/<sistema>_<chunking>.json` con las métricas por consulta, por tipo y con intervalos bootstrap. |
@@ -268,7 +385,8 @@ umbrales de `data/gate/thresholds.json`. La CI lo ejecuta, junto con los tests d
   comprueba además que se escaneó al menos un commit, para que no pueda dar un verde vacío.
 - **Tests, RLS y regression gate:** servicio `pgvector/pgvector:pg17` (con `--shm-size`), instalación **sin torch**
   (se usan los embeddings precalculados y versionados), Ruff, los tests de RLS por separado (fallan ante cualquier
-  fuga), el resto de tests, carga del corpus en Postgres y `python cli.py gate`. Cualquier fallo de estos pasos
+  fuga), el resto de tests, `python cli.py report --check` (el README no puede publicar cifras desfasadas), carga del
+  corpus en Postgres y `python cli.py gate`. Cualquier fallo de estos pasos
   falla el trabajo.
 - Las credenciales del servicio de Postgres del workflow son valores desechables de un contenedor efímero del
   runner, no secretos del proyecto.

@@ -66,6 +66,8 @@ jobs:
         run: pip install -r requirements-dev.txt
       - name: Ruff
         run: ruff check .
+      - name: "README al día (la sección de resultados la genera `python cli.py report`)"
+        run: python cli.py report --check
       - name: "Tests de aislamiento multi-inquilino (RLS); fallan ante cualquier fuga"
         run: pytest tests/test_rls.py -v
       - name: Resto de tests
