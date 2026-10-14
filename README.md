@@ -80,6 +80,7 @@ docker compose up -d     # imagen pgvector/pgvector:pg17, publicada solo en 127.
 python cli.py init-db
 python cli.py load-db
 python cli.py evaluate --system fts
+python cli.py evaluate --system dense
 ```
 
 - El puerto es el **5433** (configurable con `POSTGRES_PORT`) para no chocar con un Postgres local en el 5432.
@@ -88,7 +89,11 @@ python cli.py evaluate --system fts
 - **FTS** (`scripts/fts.py`): configuración `'english'`; consulta = OR de los términos (por defecto Postgres
   exige todos); ranking `ts_rank_cd` con valores por defecto; desempate por `chunk_id`. Decisiones fijadas antes
   de medir.
-- `evaluate --system fts` se niega a ejecutarse si los chunks cargados en la base de datos no coinciden con
+- **Denso** (`scripts/dense.py`): columna `embedding vector(384)` en la misma tabla `chunks`; distancia coseno (`<=>`)
+  con **búsqueda exacta, sin índice aproximado**; desempate por `chunk_id`. `load-db` carga también los vectores de
+  `data/embeddings/` (se niega si están desfasados) y `evaluate --system dense` usa los vectores precalculados de las
+  consultas del golden set, así que no necesita torch. La extensión `vector` se instala siempre en el esquema `public`.
+- `evaluate --system fts|dense` se niega a ejecutarse si los chunks (y, en denso, los embeddings) cargados en la base de datos no coinciden con
   `data/chunks/` (hay que repetir `load-db`).
 - Los tests de base de datos usan un esquema temporal aislado y se saltan solos si no hay Postgres.
 

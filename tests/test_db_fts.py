@@ -1,6 +1,3 @@
-import uuid
-
-import psycopg
 import pytest
 
 from scripts import db
@@ -40,24 +37,6 @@ def test_conninfo_defaults_to_loopback_and_5433(monkeypatch):
 
 
 # ---------- con base de datos (se saltan si no hay Postgres) ----------
-
-
-@pytest.fixture
-def schema():
-    """Esquema temporal aislado: no toca las tablas de desarrollo."""
-    name = f"test_{uuid.uuid4().hex[:10]}"
-    try:
-        with db.connect() as conn:
-            conn.execute(f"CREATE SCHEMA {name}")
-    except (RuntimeError, psycopg.OperationalError) as error:
-        pytest.skip(f"Postgres no disponible: {error}")
-    try:
-        with db.connect(name) as conn:
-            db.init_db(conn)
-        yield name
-    finally:
-        with db.connect() as conn:
-            conn.execute(f"DROP SCHEMA {name} CASCADE")
 
 
 def chunk(strategy, celex, article, text, **extra):
@@ -112,8 +91,11 @@ def test_search_filters_by_strategy_and_respects_depth(schema):
 
 
 def test_search_ties_are_broken_by_chunk_id(schema):
-    load(schema, "article", [chunk("article", "C", 2, "same text here", chunk_id="b"), chunk("article", "C", 1, "same text here", chunk_id="a")], "s")
-    assert FtsIndex("article", "s", schema).search("same text", 10) == [("C", 1), ("C", 2)]
+    # 40 chunks con el mismo texto (misma puntuación) e ids desordenados: sin desempate explícito no hay orden garantizado
+    numbers = [(i * 17) % 40 for i in range(40)]
+    chunks = [chunk("article", "C", n + 1, "same text here", chunk_id=f"id{n:02d}") for n in numbers]
+    load(schema, "article", chunks, "s")
+    assert FtsIndex("article", "s", schema).search("same text", 10) == [("C", n + 1) for n in range(10)]
 
 
 def test_search_with_no_usable_terms_returns_nothing(schema):

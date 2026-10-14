@@ -8,8 +8,10 @@ import json
 import sys
 from pathlib import Path
 
+from scripts import embeddings
 from scripts.baseline_bm25 import EPSILON, K1, B, Bm25Index
 from scripts.chunk_corpus import ARTICLES_FILE, WINDOWS_FILE
+from scripts.dense import DenseIndex, precomputed_query_embedder
 from scripts.download_corpus import ROOT, read_hashes, sha256_bytes
 from scripts.fts import FtsIndex
 from scripts.golden import HASH_FILE, QUERIES_FILE, check_frozen, load_jsonl
@@ -21,10 +23,18 @@ CHUNK_FILES = {"article": ARTICLES_FILE, "window": WINDOWS_FILE}
 SYSTEMS = {
     "bm25": lambda chunking, chunks, sha256: Bm25Index(chunks),
     "fts": lambda chunking, chunks, sha256: FtsIndex(chunking, sha256),
+    "dense": lambda chunking, chunks, sha256: DenseIndex(chunking, sha256, precomputed_query_embedder()),
 }
 CONFIGS = {
     "bm25": {"k1": K1, "b": B, "epsilon": EPSILON, "tokenizer": "lowercase alphanumeric, no stemming, no stopwords"},
     "fts": {"regconfig": "english", "query": "OR of alphanumeric terms via to_tsquery", "rank": "ts_rank_cd defaults", "tie_break": "chunk_id"},
+    "dense": {
+        "model": embeddings.MODEL_ID,
+        "revision": embeddings.REVISION,
+        "query_instruction": embeddings.QUERY_INSTRUCTION,
+        "similarity": "cosine (<=>) on L2-normalized vectors, exact scan, no ANN index",
+        "tie_break": "chunk_id",
+    },
 }
 DEPTH = 200  # chunks recuperados antes de convertirlos a artículos
 TOP_ARTICLES = 10  # artículos distintos que se evalúan

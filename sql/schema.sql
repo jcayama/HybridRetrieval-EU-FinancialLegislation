@@ -1,5 +1,9 @@
 -- Esquema del recuperador. Idempotente: se puede ejecutar varias veces (`python cli.py init-db`).
 
+-- La extensión SIEMPRE en `public`: si se creara dentro de un esquema temporal (tests), al borrarlo con CASCADE
+-- se llevaría por delante las columnas de tipo vector de otras tablas.
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+
 CREATE TABLE IF NOT EXISTS chunks (
     chunk_id    text PRIMARY KEY,
     strategy    text    NOT NULL CHECK (strategy IN ('article', 'window')),
@@ -26,3 +30,8 @@ CREATE TABLE IF NOT EXISTS load_info (
     chunks_sha256 text    NOT NULL,
     n_chunks      integer NOT NULL
 );
+
+-- Búsqueda densa: embedding del chunk (bge-small-en-v1.5, 384 dimensiones, normalizado). Búsqueda exacta por
+-- coseno, sin índice aproximado (HNSW/IVFFlat se evalúan aparte).
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(384);
+ALTER TABLE load_info ADD COLUMN IF NOT EXISTS embeddings_sha256 text;
