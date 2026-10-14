@@ -18,10 +18,12 @@ from scripts.metrics import Article
 SEARCH_SQL = """
 SELECT chunk_id, celex, article
 FROM chunks
-WHERE strategy = %(strategy)s AND embedding IS NOT NULL
+WHERE strategy = %(strategy)s AND embedding IS NOT NULL {scope}
 ORDER BY embedding <=> %(vector)s::vector, chunk_id
 LIMIT %(depth)s
 """
+
+PUBLIC_ONLY = "AND tenant_id IS NULL"  # sin inquilino (evaluación): solo el corpus público; con inquilino manda RLS
 
 QueryEmbedder = Callable[[str], np.ndarray]
 
@@ -41,10 +43,11 @@ def precomputed_query_embedder() -> QueryEmbedder:
 
 
 class DenseIndex:
-    def __init__(self, chunking: str, chunks_sha256: str, embed_query: QueryEmbedder, schema: str | None = None):
+    def __init__(self, chunking: str, chunks_sha256: str, embed_query: QueryEmbedder, schema: str | None = None, tenant: str | None = None):
         self.chunking = chunking
         self.embed_query = embed_query
         self.schema = schema
+        self.tenant = tenant
         with db.connect(schema) as conn:
             row = conn.execute("SELECT chunks_sha256, embeddings_sha256 FROM load_info WHERE strategy = %s", (chunking,)).fetchone()
             version = conn.execute("SELECT version()").fetchone()[0]
@@ -68,7 +71,10 @@ class DenseIndex:
         """Los `depth` mejores chunks como (chunk_id, artículo), de mejor a peor."""
         vector = db.to_vector_literal(self.embed_query(query))
         with db.connect(self.schema) as conn:
-            rows = conn.execute(SEARCH_SQL, {"strategy": self.chunking, "vector": vector, "depth": depth}).fetchall()
+            if self.tenant is not None:
+                db.tenant_transaction(conn, self.tenant)  # RLS decide qué filas se ven
+            sql = SEARCH_SQL.format(scope="" if self.tenant is not None else PUBLIC_ONLY)
+            rows = conn.execute(sql, {"strategy": self.chunking, "vector": vector, "depth": depth}).fetchall()
         return [(chunk_id, (celex, article)) for chunk_id, celex, article in rows]
 
     def search(self, query: str, depth: int) -> list[Article]:

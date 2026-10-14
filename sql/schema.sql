@@ -35,3 +35,46 @@ CREATE TABLE IF NOT EXISTS load_info (
 -- coseno, sin índice aproximado (HNSW/IVFFlat se evalúan aparte).
 ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding vector(384);
 ALTER TABLE load_info ADD COLUMN IF NOT EXISTS embeddings_sha256 text;
+
+-- =====================================================================================================
+-- Multi-inquilino con Row-Level Security.
+--   tenant_id NULL  = corpus público (visible para todos los inquilinos)
+--   tenant_id <id>  = documento privado de ese inquilino
+-- La aplicación fija el inquilino con `db.tenant_transaction` (SET LOCAL ROLE app_user + set_config local).
+-- =====================================================================================================
+ALTER TABLE chunks ADD COLUMN IF NOT EXISTS tenant_id text;
+CREATE INDEX IF NOT EXISTS chunks_tenant_idx ON chunks (tenant_id);
+
+-- Rol sin privilegios: no es superusuario, no tiene BYPASSRLS y no es propietario de la tabla.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
+        CREATE ROLE app_user NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOINHERIT;
+    END IF;
+    EXECUTE format('GRANT app_user TO %I', current_user);  -- para poder hacer SET ROLE aunque el propietario no sea superusuario
+    EXECUTE format('GRANT USAGE ON SCHEMA %I TO app_user', current_schema());
+END $$;
+GRANT SELECT, INSERT, UPDATE, DELETE ON chunks TO app_user;
+
+-- Inquilino de la transacción actual; NULL si no está fijado o está vacío.
+CREATE OR REPLACE FUNCTION current_tenant() RETURNS text LANGUAGE sql STABLE
+AS $$ SELECT NULLIF(current_setting('app.tenant_id', true), '') $$;
+
+ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chunks FORCE ROW LEVEL SECURITY;  -- también para el propietario (los superusuarios siempre se la saltan)
+
+DROP POLICY IF EXISTS chunks_select ON chunks;
+CREATE POLICY chunks_select ON chunks FOR SELECT
+    USING (current_tenant() IS NOT NULL AND (tenant_id IS NULL OR tenant_id = current_tenant()));
+
+DROP POLICY IF EXISTS chunks_insert ON chunks;
+CREATE POLICY chunks_insert ON chunks FOR INSERT
+    WITH CHECK (current_tenant() IS NOT NULL AND tenant_id = current_tenant());
+
+DROP POLICY IF EXISTS chunks_update ON chunks;
+CREATE POLICY chunks_update ON chunks FOR UPDATE
+    USING (tenant_id = current_tenant()) WITH CHECK (tenant_id = current_tenant());
+
+DROP POLICY IF EXISTS chunks_delete ON chunks;
+CREATE POLICY chunks_delete ON chunks FOR DELETE
+    USING (tenant_id = current_tenant());

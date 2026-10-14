@@ -56,6 +56,21 @@ def connect(schema: str | None = None):
         yield conn
 
 
+def tenant_transaction(conn: psycopg.Connection, tenant_id: str) -> None:
+    """Fija el inquilino de la transacción en curso. Hay que llamarla al principio de cada petición.
+
+    `SET LOCAL ROLE app_user` descarta los privilegios del propietario (que se saltaría RLS) y `set_config(..., true)`
+    fija el inquilino; AMBOS valen solo hasta el final de la transacción, así que no sobreviven en una conexión
+    reutilizada de un pool. Un `SET` de sesión (is_local = false) sí sobreviviría, y filtraría el inquilino anterior.
+    """
+    if conn.autocommit:
+        raise RuntimeError("tenant_transaction necesita una transacción: con autocommit, SET LOCAL no tiene efecto")
+    if not isinstance(tenant_id, str) or not tenant_id.strip():
+        raise ValueError("el inquilino debe ser un texto no vacío")
+    conn.execute("SET LOCAL ROLE app_user")
+    conn.execute("SELECT set_config('app.tenant_id', %s, true)", (tenant_id,))
+
+
 def init_db(conn: psycopg.Connection) -> None:
     conn.execute(SCHEMA_FILE.read_text(encoding="utf-8"))
 
@@ -83,7 +98,7 @@ def load_chunks(
     sql = f"INSERT INTO chunks ({', '.join(CHUNK_COLUMNS.values())}, embedding) VALUES ({placeholders}, %s::vector)"
     rows = [tuple(c.get(field) for field in CHUNK_COLUMNS) + (to_vector_literal(vectors[c["chunk_id"]]) if vectors is not None else None,) for c in chunks]
     with conn.cursor() as cur:
-        cur.execute("DELETE FROM chunks WHERE strategy = %s", (strategy,))
+        cur.execute("DELETE FROM chunks WHERE strategy = %s AND tenant_id IS NULL", (strategy,))  # solo el corpus público
         cur.executemany(sql, rows)
         cur.execute(
             "INSERT INTO load_info (strategy, chunks_sha256, n_chunks, embeddings_sha256) VALUES (%s, %s, %s, %s) "

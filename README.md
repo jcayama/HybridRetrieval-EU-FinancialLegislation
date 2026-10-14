@@ -189,6 +189,46 @@ parámetros fijados antes de medir: HNSW `m=16`, `ef_construction=64` y barrido 
 - **Latencia:** medida extremo a extremo desde Python (incluye serializar el vector de 384 números), con
   `shared_buffers` de 128 MB y el contenedor compartiendo CPU con otros procesos de la máquina.
 
+### Aislamiento multi-inquilino (RLS)
+
+Modelo: el corpus legislativo es público y no pertenece a nadie; cada inquilino puede tener además **documentos
+privados sintéticos** (`tenant_id`). `NULL` en `tenant_id` es el corpus público. Todos los datos de prueba son
+sintéticos.
+
+- **Políticas** en `chunks` (una por operación): `SELECT` ve el corpus público y lo propio; `INSERT` solo con el
+  `tenant_id` propio; `UPDATE` y `DELETE` solo sobre filas propias (un inquilino **no puede modificar ni borrar el
+  corpus público**, ni reasignar sus filas a otro inquilino). Si no hay inquilino fijado, **cero filas**, ni
+  siquiera las públicas (falla cerrada).
+- **Rol `app_user`** sin privilegios (no superusuario, sin `BYPASSRLS`, no propietario) y `FORCE ROW LEVEL SECURITY`.
+- **Uso:** `db.tenant_transaction(conn, tenant_id)` al principio de cada petición ejecuta `SET LOCAL ROLE app_user`
+  y `set_config('app.tenant_id', …, true)`. Ambos valen solo hasta el final de la transacción, así que no sobreviven en
+  una conexión reutilizada de un pool; un ajuste de sesión (`is_local = false`) sí filtraría el inquilino anterior, y
+  hay un test de control que lo demuestra. `SET LOCAL x = %s` no admite parámetros enlazados en psycopg 3; por eso
+  `set_config`.
+- **Búsquedas:** `FtsIndex`, `DenseIndex` y `HybridIndex` aceptan `tenant=`. Sin inquilino (la evaluación del golden
+  set) solo ven el corpus público. `load-db` borra únicamente las filas públicas al recargar.
+- **Tests** (`tests/test_rls.py`, contra Postgres real): cada inquilino ve lo público y lo propio y nunca lo ajeno;
+  sin inquilino no ve nada; escrituras confinadas; el inquilino y el rol no sobreviven a la transacción; búsquedas
+  FTS, densa e híbrida sin fugas. Se comprobó con mutaciones (sesión en lugar de transacción, política sin exigir
+  inquilino, `UPDATE` sobre filas públicas, `INSERT` sin comprobación, RLS desactivado, etc.): todas se detectan.
+- **HNSW + RLS:** el índice aproximado entrega sus candidatos antes del filtro de RLS. Con 200 filas de A pegadas a
+  la consulta y 3.000 públicas lejos, el inquilino B con `ef_search=40` (el valor por defecto) recibe **0 filas**
+  (nunca filas de A, pero tampoco las 10 pedidas). Con `ef_search=200` o con `hnsw.iterative_scan = relaxed_order`
+  recibe las 10, todas públicas, igual que con búsqueda exacta. El caso está diseñado para mostrar el problema; la
+  magnitud real depende de los datos. Es otra razón para mantener la búsqueda exacta con este corpus.
+
+Limitaciones de esta implementación, a tener en cuenta:
+
+- **Debilidad principal:** si la aplicación se conecta como el propietario y llama a `tenant_transaction`, **olvidar
+  llamarla** deja esa petición con los privilegios del propietario, que ve todo. En producción la API debería
+  conectarse directamente con un rol `LOGIN` que herede de `app_user`, de modo que olvidar fijar el inquilino dé cero
+  filas. Esa configuración de conexión aún no está implementada ni integrada con FastAPI.
+- `FORCE ROW LEVEL SECURITY` solo se verifica por catálogo: la conexión de prueba es superusuaria y los
+  superusuarios siempre se saltan RLS, así que su efecto no se puede comprobar por comportamiento.
+- `app.tenant_id` es un parámetro de configuración modificable desde la propia sesión: una inyección SQL podría
+  cambiarlo. La defensa es usar siempre consultas parametrizadas; no se cubre aquí.
+- Si el propietario no fuera superusuario, `FORCE` le aplicaría las políticas y la carga necesitaría `BYPASSRLS`.
+
 ### Chunking
 
 - **Alcance:** solo artículos (248: AIFMD 71, DORA 64, AI Act 113). Considerandos y anexos quedan fuera.

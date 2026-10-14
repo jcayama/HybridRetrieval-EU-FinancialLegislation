@@ -37,8 +37,8 @@ class RrfIndex:
 class HybridIndex(RrfIndex):
     """El híbrido principal: FTS de Postgres + denso."""
 
-    def __init__(self, chunking: str, chunks_sha256: str, embed_query: QueryEmbedder, schema: str | None = None):
-        fts = FtsIndex(chunking, chunks_sha256, schema)
-        dense = DenseIndex(chunking, chunks_sha256, embed_query, schema)
+    def __init__(self, chunking: str, chunks_sha256: str, embed_query: QueryEmbedder, schema: str | None = None, tenant: str | None = None):
+        fts = FtsIndex(chunking, chunks_sha256, schema, tenant)
+        dense = DenseIndex(chunking, chunks_sha256, embed_query, schema, tenant)
         super().__init__(fts, dense, "fts")
         self.fts = fts
