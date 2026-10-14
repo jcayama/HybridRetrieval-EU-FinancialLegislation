@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import browse_corpus, chunk_corpus, compare, db, evaluate, golden
+from scripts import browse_corpus, chunk_corpus, compare, db, embeddings, evaluate, golden
 from scripts import download_corpus as corpus
 
 
@@ -81,6 +81,13 @@ def load_db_command():
 def compare_command(result_a: str, result_b: str, metric: str):
     """Diferencia pareada A − B (con IC bootstrap) entre dos resultados de results/, p. ej. bm25_window fts_window."""
     sys.exit(compare.run(result_a, result_b, metric))
+
+
+@cli.command("embed")
+@click.option("--verify", "check", is_flag=True, help="No recalcula: comprueba que una muestra se reproduce con los vectores guardados.")
+def embed_command(check: bool):
+    """Calcula los embeddings (modelo fijado) y los guarda en data/embeddings/. Requiere requirements-embeddings.txt."""
+    sys.exit(embeddings.run(check))
 
 
 if __name__ == "__main__":

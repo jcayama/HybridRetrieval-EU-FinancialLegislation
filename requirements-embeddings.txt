@@ -1,0 +1,9 @@
+# Solo para CALCULAR embeddings (`python cli.py embed`). La API y la CI no lo necesitan: usan los embeddings
+# precalculados y versionados en data/embeddings/. Versiones fijadas para que los vectores sean reproducibles.
+-r requirements.txt
+sentence-transformers==6.1.0
+torch==2.14.1
+transformers==5.19.0
+huggingface_hub==1.33.0
+tokenizers==0.23.3
+safetensors==0.8.0
