@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import browse_corpus, chunk_corpus, golden
+from scripts import browse_corpus, chunk_corpus, evaluate, golden
 from scripts import download_corpus as corpus
 
 
@@ -52,6 +52,14 @@ def validate_golden():
 def freeze_golden():
     """Congela el golden set (SHA-256). Hazlo solo cuando esté completo."""
     sys.exit(golden.run_freeze())
+
+
+@cli.command("evaluate")
+@click.option("--system", "system_name", type=click.Choice(sorted(evaluate.SYSTEMS)), default="bm25", show_default=True)
+@click.option("--chunking", type=click.Choice(["article", "window", "both"]), default="both", show_default=True)
+def evaluate_command(system_name: str, chunking: str):
+    """Evalúa un sistema sobre el golden set congelado y guarda results/<sistema>_<chunking>.json."""
+    sys.exit(evaluate.run(system_name, chunking))
 
 
 if __name__ == "__main__":

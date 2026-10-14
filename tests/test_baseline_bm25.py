@@ -1,0 +1,48 @@
+import pytest
+
+from scripts.baseline_bm25 import Bm25Index, tokenize
+
+
+def chunk(celex, article, text):
+    return {"celex": celex, "article": article, "text": text}
+
+
+CHUNKS = [
+    chunk("C", 1, "Article 1. Alpha\nThe depositary shall safe-keep the assets of the fund."),
+    chunk("C", 2, "Article 2. Beta\nRemuneration policies shall be consistent with sound risk management."),
+    chunk("C", 3, "Article 3. Gamma\nThe competent authority may withdraw the authorisation."),
+    chunk("C", 3, "Article 3. Gamma\nA second window of the same article about the depositary."),
+    *[chunk("C", 10 + i, f"Article {10 + i}. Filler\nUnrelated provisions about marketing and reporting number {i}.") for i in range(6)],
+]  # los chunks de relleno evitan IDF nulo: un término presente en la mitad de los chunks puntúa 0 en BM25 Okapi
+
+
+def test_tokenize():
+    assert tokenize("Safe-keeping, EUR 125 000!") == ["safe", "keeping", "eur", "125", "000"]
+
+
+def test_search_ranks_matching_chunk_first():
+    index = Bm25Index(CHUNKS)
+    assert index.search("remuneration policies", 10)[0] == ("C", 2)
+    assert index.search("withdraw authorisation", 10)[0] == ("C", 3)
+
+
+def test_search_returns_one_entry_per_chunk_so_articles_can_repeat():
+    index = Bm25Index(CHUNKS)
+    assert index.search("depositary", 10).count(("C", 3)) == 1
+    assert set(index.search("depositary", 10)) == {("C", 1), ("C", 3)}
+
+
+def test_search_drops_zero_score_chunks_and_respects_depth():
+    index = Bm25Index(CHUNKS)
+    assert index.search("xyzzy", 10) == []  # ningún término coincide
+    assert len(index.search("the", 2)) <= 2
+
+
+def test_search_is_deterministic():
+    index = Bm25Index(CHUNKS)
+    assert index.search("depositary assets", 10) == index.search("depositary assets", 10)
+
+
+def test_empty_corpus_is_rejected():
+    with pytest.raises(ValueError):
+        Bm25Index([])
