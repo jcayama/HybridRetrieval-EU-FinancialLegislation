@@ -1,0 +1,16 @@
+{
+  "calibration": "gate_calibration.json",
+  "margin": 0.01,
+  "margin_source": "decisi\u00f3n manual",
+  "system": "hybrid (FTS + denso, RRF k=60), b\u00fasqueda exacta",
+  "thresholds": {
+    "article": {
+      "ndcg@10": 0.63,
+      "recall@10": 0.815
+    },
+    "window": {
+      "ndcg@10": 0.655,
+      "recall@10": 0.855
+    }
+  }
+}

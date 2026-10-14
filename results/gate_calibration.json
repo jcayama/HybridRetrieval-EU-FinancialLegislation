@@ -1,0 +1,183 @@
+{
+  "current": {
+    "article": {
+      "ndcg@10": 0.6414866305332403,
+      "recall@10": 0.8270833333333334
+    },
+    "window": {
+      "ndcg@10": 0.6668176827062782,
+      "recall@10": 0.8666666666666666
+    }
+  },
+  "margin": 0.025,
+  "noise": 0.008,
+  "perturbation_ladder_max_abs_change_informative": {
+    "0.0001": {
+      "article": {
+        "ndcg@10": 0.0,
+        "recall@10": 0.0
+      },
+      "window": {
+        "ndcg@10": 0.0,
+        "recall@10": 0.0
+      }
+    },
+    "0.001": {
+      "article": {
+        "ndcg@10": 0.0032732438392863994,
+        "recall@10": 0.0
+      },
+      "window": {
+        "ndcg@10": 0.0,
+        "recall@10": 0.0
+      }
+    },
+    "0.01": {
+      "article": {
+        "ndcg@10": 0.0033911140000157936,
+        "recall@10": 0.0
+      },
+      "window": {
+        "ndcg@10": 0.007384263524092605,
+        "recall@10": 0.025000000000000022
+      }
+    }
+  },
+  "perturbation_max": 0.0,
+  "perturbation_noise_max_abs_change": {
+    "1e-05": {
+      "article": {
+        "ndcg@10": 0.0,
+        "recall@10": 0.0
+      },
+      "window": {
+        "ndcg@10": 0.0,
+        "recall@10": 0.0
+      }
+    },
+    "1e-06": {
+      "article": {
+        "ndcg@10": 0.0,
+        "recall@10": 0.0
+      },
+      "window": {
+        "ndcg@10": 0.0,
+        "recall@10": 0.0
+      }
+    }
+  },
+  "rule": {
+    "cross_environment_noise": 0.008,
+    "min_margin": 0.01,
+    "round": 0.005,
+    "safety": 3
+  },
+  "scenarios": {
+    "consultas_desalineadas (cada consulta recibe el vector de otra)": {
+      "article": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.3433000760456787,
+        "recall@10": 0.50625
+      },
+      "window": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.39606429070200344,
+        "recall@10": 0.6208333333333333
+      }
+    },
+    "consultas_sin_instruccion_del_modelo": {
+      "article": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.6112682753876141,
+        "recall@10": 0.7833333333333333
+      },
+      "window": {
+        "falla_el_gate": false,
+        "ndcg@10": 0.6530916055261843,
+        "recall@10": 0.8645833333333334
+      }
+    },
+    "fts_config_simple_en_vez_de_english": {
+      "article": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.560846499648133,
+        "recall@10": 0.7520833333333333
+      },
+      "window": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.6053139447593797,
+        "recall@10": 0.8104166666666666
+      }
+    },
+    "hibrido_actual": {
+      "article": {
+        "falla_el_gate": false,
+        "ndcg@10": 0.6414866305332403,
+        "recall@10": 0.8270833333333334
+      },
+      "window": {
+        "falla_el_gate": false,
+        "ndcg@10": 0.6668176827062782,
+        "recall@10": 0.8666666666666666
+      }
+    },
+    "rrf_k_1": {
+      "article": {
+        "falla_el_gate": false,
+        "ndcg@10": 0.6501551853753609,
+        "recall@10": 0.8229166666666666
+      },
+      "window": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.6352858775070229,
+        "recall@10": 0.7833333333333333
+      }
+    },
+    "rrf_k_1000": {
+      "article": {
+        "falla_el_gate": false,
+        "ndcg@10": 0.630260038005865,
+        "recall@10": 0.8083333333333333
+      },
+      "window": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.6566058729963563,
+        "recall@10": 0.8354166666666666
+      }
+    },
+    "solo_denso (el lado l\u00e9xico no aporta nada)": {
+      "article": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.5551149689983065,
+        "recall@10": 0.6895833333333333
+      },
+      "window": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.6442753006762237,
+        "recall@10": 0.7708333333333333
+      }
+    },
+    "solo_fts (el lado denso no aporta nada)": {
+      "article": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.48306749957474804,
+        "recall@10": 0.675
+      },
+      "window": {
+        "falla_el_gate": true,
+        "ndcg@10": 0.5188085615684004,
+        "recall@10": 0.7625
+      }
+    }
+  },
+  "thresholds": {
+    "article": {
+      "ndcg@10": 0.615,
+      "recall@10": 0.8
+    },
+    "window": {
+      "ndcg@10": 0.64,
+      "recall@10": 0.84
+    }
+  }
+}

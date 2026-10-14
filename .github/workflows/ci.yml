@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets:
+    name: Escaneo de secretos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historial completo: el hook de pre-commit solo mira lo preparado en el índice
+      - name: "gitleaks sobre todo el historial (misma versión que .pre-commit-config.yaml)"
+        run: |
+          set -o pipefail
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 git --redact --no-banner /repo 2>&1 | tee gitleaks.log
+          # un escaneo que no mira ningún commit sería un falso verde
+          grep -Eq '[1-9][0-9]* commits scanned' gitleaks.log
+
+  test:
+    name: Tests, RLS y regression gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        # Valores DESECHABLES de un contenedor efímero del runner; no son secretos del proyecto.
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci-throwaway
+          POSTGRES_DB: retrieval
+        ports:
+          - 5432:5432
+        # --shm-size: sin él, /dev/shm es de 64 MB y una construcción de índice paralela puede fallar
+        options: >-
+          --health-cmd "pg_isready -U ci -d retrieval"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --shm-size=512m
+    env:
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ci
+      POSTGRES_PASSWORD: ci-throwaway
+      POSTGRES_DB: retrieval
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: "Instalar dependencias (sin torch; se usan los embeddings precalculados y versionados)"
+        run: pip install -r requirements-dev.txt
+      - name: Ruff
+        run: ruff check .
+      - name: "Tests de aislamiento multi-inquilino (RLS); fallan ante cualquier fuga"
+        run: pytest tests/test_rls.py -v
+      - name: Resto de tests
+        run: pytest -q
+      - name: Cargar el corpus en Postgres
+        run: |
+          python cli.py init-db
+          python cli.py load-db
+      - name: "Regression gate (híbrido, búsqueda exacta)"
+        run: python cli.py gate

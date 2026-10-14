@@ -69,6 +69,9 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 | `python cli.py compare <A> <B> [--metric ndcg@10] [--bonferroni N]` | Diferencia pareada A − B entre dos resultados de `results/` (p. ej. `bm25_window fts_window`), con intervalo bootstrap global y por tipo de consulta (y, con `--bonferroni N`, el global corregido para N comparaciones). Se niega si los resultados vienen de golden sets distintos. |
 | `python cli.py embed [--verify]` | Calcula los embeddings de chunks y consultas con el modelo fijado y los guarda en `data/embeddings/`. Con `--verify` no recalcula: comprueba que una muestra se reproduce con lo guardado. Requiere `requirements-embeddings.txt`. |
 | `python cli.py bench-index [--size N] [--skip-synthetic]` | Compara HNSW e IVFFlat (recall y latencia) en un esquema temporal que se borra al terminar; guarda `results/index_benchmark.json`. |
+| `python cli.py gate` | Regression gate: falla si el híbrido (búsqueda exacta) cae bajo los umbrales de `data/gate/thresholds.json`. |
+| `python cli.py calibrate-gate [--write-thresholds]` | Recalcula ruido, sensibilidad a regresiones y umbrales (local; requiere torch). |
+| `python cli.py gate-margin X` | Fija a mano el margen del gate (≥ 0,01) y recalcula los umbrales desde la calibración guardada. |
 | `python cli.py init-db` | Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el `.env`. |
 | `python cli.py load-db` | Carga `data/chunks/*.jsonl` en Postgres. Idempotente: reemplaza lo anterior y registra el hash de los ficheros cargados. |
 | `python cli.py evaluate [--system bm25] [--chunking article\|window\|both]` | Evalúa un sistema sobre el golden set **congelado** (se niega si no está congelado o fue modificado) y guarda `results/<sistema>_<chunking>.json` con las métricas por consulta, por tipo y con intervalos bootstrap. |
@@ -228,6 +231,57 @@ Limitaciones de esta implementación, a tener en cuenta:
 - `app.tenant_id` es un parámetro de configuración modificable desde la propia sesión: una inyección SQL podría
   cambiarlo. La defensa es usar siempre consultas parametrizadas; no se cubre aquí.
 - Si el propietario no fuera superusuario, `FORCE` le aplicaría las políticas y la carga necesitaría `BYPASSRLS`.
+
+### Regression gate
+
+`python cli.py gate` evalúa el sistema principal (**híbrido FTS + denso con RRF k=60, búsqueda exacta**) sobre el
+golden set congelado y falla si **Recall@10 o nDCG@10**, con chunking por artículo o por ventanas, caen bajo los
+umbrales de `data/gate/thresholds.json`. La CI lo ejecuta, junto con los tests de RLS.
+
+- **Qué es y qué no es:** un gate **no compara sistemas con estadística** (el IC de muestreo del golden set es de
+  ±0,1): detecta que la tubería haya cambiado de comportamiento sobre los mismos datos congelados. Por eso el margen
+  depende del ruido de implementación y de plataforma, no del de muestreo.
+- **Regla** (fijada antes de calcular, `scripts/gate.py`): ruido = el mayor entre la diferencia entre entornos
+  observada para FTS (0,008) y el cambio máximo del híbrido al perturbar los vectores de consulta; margen =
+  max(0,01, 3 × ruido) redondeado hacia arriba a múltiplos de 0,005; umbral = valor actual − margen, redondeado hacia
+  abajo. Los umbrales se recalculan con `python cli.py calibrate-gate [--write-thresholds]`, y
+  `python cli.py gate-margin X` fija un margen decidido a mano. Todo queda en `results/gate_calibration.json`.
+- **Ruido medido:** perturbar los vectores de consulta con ruido relativo de 1e-6 y 1e-5 (100 veces el épsilon de
+  `float32`) no movió ninguna métrica en 20 semillas; las métricas empiezan a moverse con ≈1e-3 (nDCG hasta 0,003) y
+  con 1e-2 el Recall@10 llega a cambiar 0,025. La diferencia entre PostgreSQL de Homebrew y el contenedor, medida una
+  sola vez para FTS, fue de hasta 0,008 (en Recall@3, que no es una métrica del gate) y ≤0,001 en Recall@10 y nDCG@10.
+  **No se ha medido todavía una ejecución en la arquitectura de la CI (amd64):** la primera ejecución en GitHub
+  Actions será la comprobación real.
+- **Sensibilidad** (en `results/gate_calibration.json`): el gate detecta consultas desalineadas con sus vectores,
+  cambiar la configuración de FTS a `'simple'`, degradar el híbrido a solo denso o solo FTS, y cambiar RRF a k=1 con
+  ventanas. **Con el margen de 0,025 no detecta** que las consultas pierdan la instrucción del modelo con ventanas
+  (−0,014 de nDCG) ni RRF con k=1000 con artículos.
+- **Límites:** protege el corpus y el golden set actuales; no detecta mejoras ni regresiones menores que el margen, y
+  no sustituye a `evaluate` y `compare` para decidir entre sistemas.
+
+### Integración continua (GitHub Actions)
+
+`.github/workflows/ci.yml` se ejecuta en cada `push` a `main` y en cada `pull request`, con dos trabajos independientes:
+
+- **Escaneo de secretos:** gitleaks 8.30.1 (la misma versión que pre-commit) sobre **todo el historial**. El hook de
+  pre-commit solo mira lo preparado en el índice (`--staged`), así que en la CI no habría escaneado nada; el paso
+  comprueba además que se escaneó al menos un commit, para que no pueda dar un verde vacío.
+- **Tests, RLS y regression gate:** servicio `pgvector/pgvector:pg17` (con `--shm-size`), instalación **sin torch**
+  (se usan los embeddings precalculados y versionados), Ruff, los tests de RLS por separado (fallan ante cualquier
+  fuga), el resto de tests, carga del corpus en Postgres y `python cli.py gate`. Cualquier fallo de estos pasos
+  falla el trabajo.
+- Las credenciales del servicio de Postgres del workflow son valores desechables de un contenedor efímero del
+  runner, no secretos del proyecto.
+- **Ensayo previo:** los pasos se reprodujeron en local sobre una copia limpia (sin `.env`, sin `data/raw/`, sin el
+  entorno virtual), con `torch` inexistente y una base de datos nueva y vacía: Ruff, 15 tests de RLS, 1.678 tests
+  (4 saltados por no haber corpus descargado ni modelo) y el gate con los mismos valores que en local.
+- **Aún no verificado:** no se ha ejecutado en GitHub Actions. Las versiones de `actions/checkout@v4` y
+  `actions/setup-python@v5` y el funcionamiento de `docker run` con `--user` para gitleaks en el runner son de
+  memoria y sin probar. Tampoco se ha medido la arquitectura de la CI (amd64) frente a la local (arm64): la
+  primera ejecución real será esa comprobación, y si el gate falla por ruido de plataforma habrá que recalibrar
+  con los números que muestre.
+- **Fuera de la CI:** `download-corpus` (comprobar el hash contra EUR-Lex) no se ejecuta en cada commit, para no
+  depender de la disponibilidad de EUR-Lex.
 
 ### Chunking
 

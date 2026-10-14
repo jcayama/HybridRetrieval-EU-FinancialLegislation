@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, evaluate, golden
+from scripts import bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, evaluate, gate, golden
 from scripts import download_corpus as corpus
 
 
@@ -98,6 +98,26 @@ def embed_command(check: bool):
 def bench_index_command(size: int, n_queries: int, skip_synthetic: bool):
     """Compara HNSW e IVFFlat (recall y latencia) en un esquema temporal; guarda results/index_benchmark.json."""
     sys.exit(bench_index.run(size, n_queries, skip_synthetic))
+
+
+@cli.command("gate")
+def gate_command():
+    """Regression gate: falla si el híbrido (búsqueda exacta) cae bajo los umbrales de data/gate/thresholds.json."""
+    sys.exit(gate.run_gate())
+
+
+@cli.command("calibrate-gate")
+@click.option("--write-thresholds", is_flag=True, help="Escribe data/gate/thresholds.json con los umbrales calculados.")
+def calibrate_gate_command(write_thresholds: bool):
+    """Recalcula el ruido, la sensibilidad a regresiones y los umbrales (local; requiere torch)."""
+    sys.exit(gate.run_calibrate(write_thresholds))
+
+
+@cli.command("gate-margin")
+@click.argument("margin", type=float)
+def gate_margin_command(margin: float):
+    """Fija a mano el margen del gate (>= 0,01) y recalcula los umbrales desde la calibración guardada."""
+    sys.exit(gate.run_set_margin(margin))
 
 
 if __name__ == "__main__":
