@@ -11,13 +11,21 @@ from pathlib import Path
 from scripts.baseline_bm25 import EPSILON, K1, B, Bm25Index
 from scripts.chunk_corpus import ARTICLES_FILE, WINDOWS_FILE
 from scripts.download_corpus import ROOT, read_hashes, sha256_bytes
+from scripts.fts import FtsIndex
 from scripts.golden import HASH_FILE, QUERIES_FILE, check_frozen, load_jsonl
 from scripts.metrics import Run, dedupe_to_articles, evaluate_run, load_qrels, mean_metrics, paired_bootstrap
 
 RESULTS_DIR = ROOT / "results"
 CHUNK_FILES = {"article": ARTICLES_FILE, "window": WINDOWS_FILE}
-SYSTEMS = {"bm25": Bm25Index}
-CONFIGS = {"bm25": {"k1": K1, "b": B, "epsilon": EPSILON, "tokenizer": "lowercase alphanumeric, no stemming, no stopwords"}}
+# Cada sistema se construye con (chunking, chunks, sha256 del fichero de chunks).
+SYSTEMS = {
+    "bm25": lambda chunking, chunks, sha256: Bm25Index(chunks),
+    "fts": lambda chunking, chunks, sha256: FtsIndex(chunking, sha256),
+}
+CONFIGS = {
+    "bm25": {"k1": K1, "b": B, "epsilon": EPSILON, "tokenizer": "lowercase alphanumeric, no stemming, no stopwords"},
+    "fts": {"regconfig": "english", "query": "OR of alphanumeric terms via to_tsquery", "rank": "ts_rank_cd defaults", "tie_break": "chunk_id"},
+}
 DEPTH = 200  # chunks recuperados antes de convertirlos a artículos
 TOP_ARTICLES = 10  # artículos distintos que se evalúan
 TYPES = ("paraphrase", "exact_term", "multi_article")
@@ -71,14 +79,16 @@ def evaluate(system: str, chunking: str, results_dir: Path = RESULTS_DIR) -> dic
     if problems := check_frozen():
         raise RuntimeError("; ".join(problems))
     queries = load_jsonl(QUERIES_FILE)
-    index = SYSTEMS[system](load_chunks(chunking))
+    chunks_sha256 = sha256_bytes(CHUNK_FILES[chunking].read_bytes())
+    index = SYSTEMS[system](chunking, load_chunks(chunking), chunks_sha256)
     per_query = evaluate_run(run_system(index, queries), load_qrels())
     report = {
         "system": system,
         "chunking": chunking,
         "config": CONFIGS[system] | {"depth": DEPTH, "top_articles": TOP_ARTICLES},
         "golden_sha256": read_hashes(HASH_FILE),
-        "chunks_sha256": sha256_bytes(CHUNK_FILES[chunking].read_bytes()),
+        "chunks_sha256": chunks_sha256,
+        "runtime": getattr(index, "info", {}),
         "summary": summarize(per_query, queries),
         "per_query": per_query,
     }

@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import browse_corpus, chunk_corpus, evaluate, golden
+from scripts import browse_corpus, chunk_corpus, db, evaluate, golden
 from scripts import download_corpus as corpus
 
 
@@ -60,6 +60,18 @@ def freeze_golden():
 def evaluate_command(system_name: str, chunking: str):
     """Evalúa un sistema sobre el golden set congelado y guarda results/<sistema>_<chunking>.json."""
     sys.exit(evaluate.run(system_name, chunking))
+
+
+@cli.command("init-db")
+def init_db_command():
+    """Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el .env."""
+    sys.exit(db.run_init())
+
+
+@cli.command("load-db")
+def load_db_command():
+    """Carga data/chunks/*.jsonl en Postgres (idempotente: reemplaza lo anterior)."""
+    sys.exit(db.run_load())
 
 
 if __name__ == "__main__":

@@ -66,7 +66,29 @@ disponibles. Se irán añadiendo conforme se implementen las etapas.
 | `python cli.py show-article <acto> <N>` | Muestra el texto completo de un artículo, tal y como se indexa. |
 | `python cli.py validate-golden` | Valida el golden set: formato, que los artículos existen, grados 1–3, consultas sin juicios; muestra avisos de revisión y el reparto por tipo. Falla si hay errores o si el golden set congelado se modificó. |
 | `python cli.py freeze-golden` | Congela el golden set (SHA-256 en `data/golden/golden.sha256`). Solo con el conjunto completo. |
+| `python cli.py init-db` | Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el `.env`. |
+| `python cli.py load-db` | Carga `data/chunks/*.jsonl` en Postgres. Idempotente: reemplaza lo anterior y registra el hash de los ficheros cargados. |
 | `python cli.py evaluate [--system bm25] [--chunking article\|window\|both]` | Evalúa un sistema sobre el golden set **congelado** (se niega si no está congelado o fue modificado) y guarda `results/<sistema>_<chunking>.json` con las métricas por consulta, por tipo y con intervalos bootstrap. |
+
+### Postgres (desarrollo local)
+
+```bash
+cp .env.example .env     # y define POSTGRES_USER, POSTGRES_PASSWORD y POSTGRES_DB (valores propios)
+docker compose up -d     # imagen pgvector/pgvector:pg17, publicada solo en 127.0.0.1:5433
+python cli.py init-db
+python cli.py load-db
+python cli.py evaluate --system fts
+```
+
+- El puerto es el **5433** (configurable con `POSTGRES_PORT`) para no chocar con un Postgres local en el 5432.
+  Está publicado solo en la interfaz loopback: únicamente los programas de la propia máquina pueden conectarse.
+- `docker-compose.yml` falla si faltan las credenciales; no hay secretos en el repositorio.
+- **FTS** (`scripts/fts.py`): configuración `'english'`; consulta = OR de los términos (por defecto Postgres
+  exige todos); ranking `ts_rank_cd` con valores por defecto; desempate por `chunk_id`. Decisiones fijadas antes
+  de medir.
+- `evaluate --system fts` se niega a ejecutarse si los chunks cargados en la base de datos no coinciden con
+  `data/chunks/` (hay que repetir `load-db`).
+- Los tests de base de datos usan un esquema temporal aislado y se saltan solos si no hay Postgres.
 
 ### Datos
 
