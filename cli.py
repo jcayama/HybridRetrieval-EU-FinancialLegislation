@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import browse_corpus, chunk_corpus, db, evaluate, golden
+from scripts import browse_corpus, chunk_corpus, compare, db, evaluate, golden
 from scripts import download_corpus as corpus
 
 
@@ -72,6 +72,15 @@ def init_db_command():
 def load_db_command():
     """Carga data/chunks/*.jsonl en Postgres (idempotente: reemplaza lo anterior)."""
     sys.exit(db.run_load())
+
+
+@cli.command("compare")
+@click.argument("result_a")
+@click.argument("result_b")
+@click.option("--metric", default="ndcg@10", show_default=True, help="recall@1|3|5|10, ndcg@10 o mrr@10")
+def compare_command(result_a: str, result_b: str, metric: str):
+    """Diferencia pareada A − B (con IC bootstrap) entre dos resultados de results/, p. ej. bm25_window fts_window."""
+    sys.exit(compare.run(result_a, result_b, metric))
 
 
 if __name__ == "__main__":
