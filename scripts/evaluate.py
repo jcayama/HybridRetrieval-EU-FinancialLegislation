@@ -15,7 +15,7 @@ from scripts.dense import DenseIndex, precomputed_query_embedder
 from scripts.download_corpus import ROOT, read_hashes, sha256_bytes
 from scripts.fts import FtsIndex
 from scripts.golden import HASH_FILE, QUERIES_FILE, check_frozen, load_jsonl
-from scripts.hybrid import HybridIndex
+from scripts.hybrid import HybridIndex, RrfIndex
 from scripts.hybrid import K as RRF_K
 from scripts.metrics import Run, dedupe_to_articles, evaluate_run, load_qrels, mean_metrics, paired_bootstrap
 
@@ -27,6 +27,10 @@ SYSTEMS = {
     "fts": lambda chunking, chunks, sha256: FtsIndex(chunking, sha256),
     "dense": lambda chunking, chunks, sha256: DenseIndex(chunking, sha256, precomputed_query_embedder()),
     "hybrid": lambda chunking, chunks, sha256: HybridIndex(chunking, sha256, precomputed_query_embedder()),
+    # EXPLORATORIO: idea posterior a ver los resultados del híbrido con FTS (ver README)
+    "hybrid-bm25": lambda chunking, chunks, sha256: RrfIndex(
+        Bm25Index(chunks), DenseIndex(chunking, sha256, precomputed_query_embedder()), "bm25", {"exploratory": True}
+    ),
 }
 CONFIGS = {
     "bm25": {"k1": K1, "b": B, "epsilon": EPSILON, "tokenizer": "lowercase alphanumeric, no stemming, no stopwords"},
@@ -37,6 +41,14 @@ CONFIGS = {
         "query_instruction": embeddings.QUERY_INSTRUCTION,
         "similarity": "cosine (<=>) on L2-normalized vectors, exact scan, no ANN index",
         "tie_break": "chunk_id",
+    },
+    "hybrid-bm25": {
+        "fusion": "RRF",
+        "k": RRF_K,
+        "inputs": ["bm25", "dense"],
+        "fused_at": "chunk level, then converted to distinct articles",
+        "exploratory": True,
+        "note": "variant proposed after seeing the results of the FTS+dense hybrid",
     },
     "hybrid": {"fusion": "RRF", "k": RRF_K, "inputs": ["fts", "dense"], "fused_at": "chunk level, then converted to distinct articles", "tie_break": "chunk_id"},
 }

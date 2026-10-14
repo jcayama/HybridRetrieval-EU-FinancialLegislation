@@ -97,7 +97,11 @@ python cli.py evaluate --system hybrid
 - **Híbrido** (`scripts/rrf.py` y `scripts/hybrid.py`): RRF con k = 60 sobre los rankings de FTS y denso, cada uno con
   sus 200 mejores chunks. La fusión es **a nivel de chunk** (por `chunk_id`) y después se convierte a artículos
   distintos, igual que en los demás sistemas. RRF es una función pura con tests (ejemplo calculado a mano).
-- `evaluate --system fts|dense|hybrid` se niega a ejecutarse si los chunks (y, en denso, los embeddings) cargados en la base de datos no coinciden con
+- **Híbrido BM25 + denso** (`--system hybrid-bm25`, **exploratorio**): misma fusión RRF con BM25 como entrada léxica.
+  Es una idea posterior a ver los resultados del híbrido con FTS, así que sus comparaciones se declararon como
+  exploratorias y se corrigen con Bonferroni sobre 21 (las 15 principales más estas 6). El resultado se informa
+  tal cual, no cambia el sistema principal.
+- `evaluate --system fts|dense|hybrid|hybrid-bm25` se niega a ejecutarse si los chunks (y, en denso, los embeddings) cargados en la base de datos no coinciden con
   `data/chunks/` (hay que repetir `load-db`).
 - Los tests de base de datos usan un esquema temporal aislado y se saltan solos si no hay Postgres.
 

@@ -15,14 +15,16 @@ from scripts.metrics import Article
 K = rrf.K_DEFAULT
 
 
-class HybridIndex:
-    def __init__(self, chunking: str, chunks_sha256: str, embed_query: QueryEmbedder, schema: str | None = None):
-        self.fts = FtsIndex(chunking, chunks_sha256, schema)
-        self.dense = DenseIndex(chunking, chunks_sha256, embed_query, schema)
-        self.info = self.dense.info | self.fts.info | {"fusion": "RRF", "k": K, "inputs": ["fts", "dense"]}
+class RrfIndex:
+    """Fusión RRF de un índice léxico y uno denso. Ambos deben exponer `search_chunks(query, depth)`."""
+
+    def __init__(self, lexical, dense, lexical_name: str, info: dict | None = None):
+        self.lexical = lexical
+        self.dense = dense
+        self.info = (getattr(dense, "info", {}) | getattr(lexical, "info", {})) | {"fusion": "RRF", "k": K, "inputs": [lexical_name, "dense"]} | (info or {})
 
     def search_chunks(self, query: str, depth: int) -> list[tuple[str, Article]]:
-        lexical = self.fts.search_chunks(query, depth)
+        lexical = self.lexical.search_chunks(query, depth)
         semantic = self.dense.search_chunks(query, depth)
         articles = dict(lexical) | dict(semantic)
         fused = rrf.rrf([[chunk_id for chunk_id, _ in lexical], [chunk_id for chunk_id, _ in semantic]], k=K)
@@ -30,3 +32,13 @@ class HybridIndex:
 
     def search(self, query: str, depth: int) -> list[Article]:
         return [article for _, article in self.search_chunks(query, depth)]
+
+
+class HybridIndex(RrfIndex):
+    """El híbrido principal: FTS de Postgres + denso."""
+
+    def __init__(self, chunking: str, chunks_sha256: str, embed_query: QueryEmbedder, schema: str | None = None):
+        fts = FtsIndex(chunking, chunks_sha256, schema)
+        dense = DenseIndex(chunking, chunks_sha256, embed_query, schema)
+        super().__init__(fts, dense, "fts")
+        self.fts = fts

@@ -2,9 +2,11 @@ import pytest
 
 from scripts.baseline_bm25 import Bm25Index, tokenize
 
+_counter = iter(range(10_000))
+
 
 def chunk(celex, article, text):
-    return {"celex": celex, "article": article, "text": text}
+    return {"chunk_id": f"{celex}:art_{article}:{next(_counter)}", "celex": celex, "article": article, "text": text}
 
 
 CHUNKS = [
@@ -46,3 +48,11 @@ def test_search_is_deterministic():
 def test_empty_corpus_is_rejected():
     with pytest.raises(ValueError):
         Bm25Index([])
+
+
+def test_search_chunks_returns_chunk_ids_matching_the_articles():
+    index = Bm25Index(CHUNKS)
+    results = index.search_chunks("depositary", 10)
+    assert {article for _, article in results} == {("C", 1), ("C", 3)}
+    assert len({chunk_id for chunk_id, _ in results}) == len(results)  # ids únicos
+    assert [article for _, article in results] == index.search("depositary", 10)
