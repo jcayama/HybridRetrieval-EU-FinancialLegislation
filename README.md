@@ -6,9 +6,9 @@ ficheros de `results/`, y un test comprueba que el README no se desfasa. Otras c
 truncamiento de embeddings o las de HNSW con RLS) están **transcritas** de la salida de scripts del repositorio, y cada
 sección indica de cuál.
 
-> **Estado:** los seis criterios de «hecho» están implementados y medidos (ver «Resultados»). Pendiente antes de
-> publicar: licencia del código, aviso legal de EUR-Lex y la primera ejecución real de la CI en GitHub Actions, que
-> todavía no se ha producido.
+> **Estado:** los seis criterios de «hecho» están implementados y medidos (ver «Resultados»). Pendiente tras publicar:
+> la primera ejecución real de la CI en GitHub Actions, que todavía no se ha producido; si el regression gate falla por
+> diferencias de plataforma, habrá que recalibrar sus umbrales con los números que muestre.
 
 ## Qué se evaluará
 
@@ -475,10 +475,25 @@ Ejemplo hecho a mano (juicios A=3, B=2, C=1; ranking X, B, A, Y, C con X e Y irr
 Recall@1 = 0, Recall@2 = 0,5, Recall@3 = 1, MRR = 0,5 y nDCG@5 = 0,6612
 (DCG = 2/log2(3) + 3/log2(4) + 1/log2(6) = 3,1487; ideal A, B, C = 4,7619).
 
-## Atribución y licencia del corpus
+## Licencias y atribución
 
-Los textos legislativos proceden de [EUR-Lex](https://eur-lex.europa.eu/), © Unión Europea,
-y se reutilizan conforme a la Decisión 2011/833/UE de la Comisión, citando la fuente y sin
-distorsionar el texto.
+- **Código y golden set:** licencia **MIT** (`LICENSE`). El golden set (`data/golden/`) es trabajo propio del autor
+  (consultas redactadas con ayuda de un asistente de IA y juicios de relevancia puestos por una persona) y lo cubre la
+  misma licencia.
+- **Textos legislativos y datos derivados** (`data/chunks/`, `data/embeddings/`, `data/corpus.sha256` y los
+  fragmentos que devuelve la API): **no** los cubre la licencia MIT; siguen las condiciones de reutilización de EUR-Lex.
 
-<!-- Pendiente: confirmar el aviso legal de EUR-Lex antes de publicar; licencia del código. -->
+**Atribución.** Los textos legislativos proceden de [EUR-Lex](https://eur-lex.europa.eu/) (© Unión Europea), descargados
+de la API Cellar de la Oficina de Publicaciones, y se reutilizan conforme a su política de reutilización (Decisión
+2011/833/UE), citando la fuente y sin alterar su sentido.
+
+**Modificaciones.** Se extrae el texto de los artículos del XHTML publicado, se normalizan los espacios, se unen en una
+línea las filas de las listas, se antepone «Article N. Título» a cada chunk y los artículos se segmentan en chunks. Solo
+se indexan los artículos: considerandos y anexos quedan fuera.
+
+**Avisos.** Solo los documentos publicados en el Diario Oficial de la Unión Europea se consideran auténticos: este
+proyecto **no es asesoramiento jurídico** y los textos que contiene no sustituyen a la versión oficial. Se trabaja con el
+texto publicado, no con el consolidado. No se usa el logotipo de EUR-Lex. Las condiciones se leyeron en el aviso legal de
+EUR-Lex y en el art. 6 de la Decisión 2011/833/UE el 15 de octubre de 2026; el ámbito de esa Decisión se define para
+documentos de la Comisión y estos tres actos los adoptan el Parlamento y el Consejo, así que quien necesite certeza
+jurídica debe consultarlo con la Oficina de Publicaciones.
