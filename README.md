@@ -6,9 +6,9 @@ ficheros de `results/`, y un test comprueba que el README no se desfasa. Otras c
 truncamiento de embeddings o las de HNSW con RLS) están **transcritas** de la salida de scripts del repositorio, y cada
 sección indica de cuál.
 
-> **Estado:** los seis criterios de «hecho» están implementados y medidos (ver «Resultados»). Pendiente tras publicar:
-> la primera ejecución real de la CI en GitHub Actions, que todavía no se ha producido; si el regression gate falla por
-> diferencias de plataforma, habrá que recalibrar sus umbrales con los números que muestre.
+> **Estado:** los seis criterios de «hecho» están implementados y medidos (ver «Resultados»), y la CI de GitHub Actions
+> se ha ejecutado con éxito sobre el historial publicado. Si en el futuro el regression gate fallara por diferencias de
+> plataforma, habría que recalibrar sus umbrales con los números que muestre (ver «Regression gate»).
 
 ## Qué se evaluará
 
@@ -409,8 +409,9 @@ umbrales de `data/gate/thresholds.json`. La CI lo ejecuta, junto con los tests d
   `float32`) no movió ninguna métrica en 20 semillas; las métricas empiezan a moverse con ≈1e-3 (nDCG hasta 0,003) y
   con 1e-2 el Recall@10 llega a cambiar 0,025. La diferencia entre PostgreSQL de Homebrew y el contenedor, medida una
   sola vez para FTS, fue de hasta 0,008 (en Recall@3, que no es una métrica del gate) y ≤0,001 en Recall@10 y nDCG@10.
-  **No se ha medido todavía una ejecución en la arquitectura de la CI (amd64):** la primera ejecución en GitHub
-  Actions será la comprobación real.
+  **En GitHub Actions el gate pasó** con este margen. No se inspeccionó el registro de la ejecución, así que no se
+  documenta qué arquitectura usó el runner ni qué valores midió allí: si algún día falla por plataforma, el propio
+  registro los mostrará.
 - **Sensibilidad** (en `results/gate_calibration.json`): el gate detecta consultas desalineadas con sus vectores,
   cambiar la configuración de FTS a `'simple'`, degradar el híbrido a solo denso o solo FTS, y cambiar RRF a k=1 con
   ventanas. **Con el margen de 0,025 no detecta** que las consultas pierdan la instrucción del modelo con ventanas
@@ -437,11 +438,11 @@ umbrales de `data/gate/thresholds.json`. La CI lo ejecuta, junto con los tests d
 - **Ensayo previo:** los pasos se reprodujeron en local sobre una copia limpia (sin `.env`, sin `data/raw/`, sin el
   entorno virtual), con `torch` inexistente y una base de datos nueva y vacía: Ruff, 15 tests de RLS, 1.678 tests
   (4 saltados por no haber corpus descargado ni modelo) y el gate con los mismos valores que en local.
-- **Aún no verificado:** no se ha ejecutado en GitHub Actions. Las versiones de `actions/checkout@v4` y
-  `actions/setup-python@v5` y el funcionamiento de `docker run` con `--user` para gitleaks en el runner son de
-  memoria y sin probar. Tampoco se ha medido la arquitectura de la CI (amd64) frente a la local (arm64): la
-  primera ejecución real será esa comprobación, y si el gate falla por ruido de plataforma habrá que recalibrar
-  con los números que muestre.
+- **Verificado en GitHub Actions:** el workflow se ejecutó en verde sobre el repositorio publicado (escaneo de
+  secretos, Ruff, README al día, carga del corpus, tests con RLS y regression gate). Con ello quedan comprobadas las
+  versiones de `actions/checkout@v4` y `actions/setup-python@v5` y el uso de `docker run --user` con gitleaks, que
+  antes eran de memoria. **Límite:** solo se miró el resultado global, no el registro paso a paso; no se comprobó la
+  arquitectura del runner ni los valores de las métricas medidos allí.
 - **Fuera de la CI:** `download-corpus` (comprobar el hash contra EUR-Lex) no se ejecuta en cada commit, para no
   depender de la disponibilidad de EUR-Lex.
 
