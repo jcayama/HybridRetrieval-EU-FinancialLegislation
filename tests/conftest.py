@@ -4,6 +4,7 @@ import psycopg
 import pytest
 
 from scripts import db
+from tests.helpers import skip_or_fail
 
 
 @pytest.fixture
@@ -14,7 +15,7 @@ def schema():
         with db.connect() as conn:
             conn.execute(f"CREATE SCHEMA {name}")
     except (RuntimeError, psycopg.OperationalError) as error:
-        pytest.skip(f"Postgres no disponible: {error}")
+        skip_or_fail(f"Postgres no disponible: {error}")
     try:
         with db.connect(name) as conn:
             db.init_db(conn)

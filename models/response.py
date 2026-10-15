@@ -1,24 +1,17 @@
-from typing import List
-
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from models.error import Error
 
 ERRORS = {
-    "INVALID_QUERY_PARAMETER": ("E0001", "Cadena vacía o menor a 10 caracteres"),
-    "TEXT_NOT_EXTRACTED": ("E0002", "Texto no procesado"),
+    "INVALID_QUERY_PARAMETER": ("E0001", "La consulta está vacía o supera los 500 caracteres"),
+    "MODEL_UNAVAILABLE": ("E0002", "El modelo de embeddings no está disponible: instala requirements-embeddings.txt o usa mode=fts"),
+    "INVALID_TENANT": ("E0003", "Cabecera X-Tenant-ID no válida: de 1 a 64 caracteres entre letras, cifras, «_», «.» y «-»"),
+    "DATABASE_NOT_READY": ("E0004", "La base de datos no está disponible o no está cargada: ejecuta `docker compose up -d`, `python cli.py init-db` y `python cli.py load-db`"),
 }
 
 
-class Message(BaseModel):
-    model_config = ConfigDict(json_schema_extra={"example": {"code": "string", "title": "string"}})
-
-    code: str
-    title: str
-
-
 class ErrorResponse(BaseModel):
-    errors: List[Error]
+    errors: list[Error]
 
     @classmethod
     def from_type(cls, error_type: str) -> "ErrorResponse":

@@ -68,13 +68,13 @@ jobs:
         run: ruff check .
       - name: "README al día (la sección de resultados la genera `python cli.py report`)"
         run: python cli.py report --check
+      - name: "Cargar el corpus en Postgres (antes de los tests: la paridad del endpoint lo necesita)"
+        run: |
+          python cli.py init-db
+          python cli.py load-db
       - name: "Tests de aislamiento multi-inquilino (RLS); fallan ante cualquier fuga"
         run: pytest tests/test_rls.py -v
       - name: Resto de tests
         run: pytest -q
-      - name: Cargar el corpus en Postgres
-        run: |
-          python cli.py init-db
-          python cli.py load-db
       - name: "Regression gate (híbrido, búsqueda exacta)"
         run: python cli.py gate

@@ -150,6 +150,48 @@ Corrección de Bonferroni sobre 21 (las 15 principales más estas 6). 1 de 6 exc
 |  | IVFFlat (probes=10) | lists=100 | 1,000 | 6,83 | 2,6 | 164,3 |
 <!-- results:end -->
 
+## API: probar el recuperador
+
+```bash
+docker compose up -d && python cli.py init-db && python cli.py load-db   # una vez (ver «Postgres»)
+uvicorn main:app --port 5013
+```
+
+Abre <http://localhost:5013/docs> (interfaz interactiva) o usa `curl`:
+
+```bash
+curl -s -X POST localhost:5013/hybridretrievals -H 'content-type: application/json' \
+  -d '{"query": "What must a bank write into its contract with a cloud provider?", "top_k": 5}'
+```
+
+| Campo | Valores | Por defecto |
+|---|---|---|
+| `query` | de 1 a 500 caracteres, **en inglés**; las siglas cortas (`TLPT`) son válidas | — |
+| `top_k` | 1 a 50 artículos distintos | 10 |
+| `mode` | `hybrid` (FTS + denso con RRF k=60), `fts`, `dense` | `hybrid` |
+| `chunking` | `window` (ventanas de 200 palabras), `article` | `window` |
+
+Cada resultado trae `rank`, `act`, `celex`, `article`, `title` y un **fragmento del chunk que mejor encajó**.
+`GET /health` indica si responden la base de datos y el modelo.
+
+- **Dos niveles de instalación:** con `requirements.txt` (sin torch) funciona `mode=fts`. `hybrid` y `dense` embeben
+  la consulta con el modelo y necesitan `pip install -r requirements-embeddings.txt` (torch, cientos de MB); sin
+  él devuelven un **503** que lo explica. El modelo se carga al arrancar el servidor, fuera del bucle de eventos.
+- **Qué garantiza que el endpoint hace lo que se midió:** `tests/test_api_parity.py` comprueba que, para las 40
+  consultas del golden set, el endpoint devuelve **exactamente** los rankings que `evaluate` midió, con FTS, denso e
+  híbrido y con ambos chunkings. En la CI se ejecuta la parte de FTS; las que necesitan el modelo, solo en local.
+- **Errores** (`{"errors": [{"code", "title"}]}`): `E0001` consulta vacía o de más de 500 caracteres (400),
+  `E0002` modelo no disponible (503), `E0003` cabecera `X-Tenant-ID` no válida (400), `E0004` base de datos no
+  disponible o sin cargar (503). Los cuerpos mal formados dan el 422 habitual de FastAPI. Los fallos inesperados dan
+  un 500 con un `error_id` y sin detalles internos.
+- **Inquilinos (demostración, no seguridad):** por defecto solo se ve el corpus público y la cabecera se ignora. Con
+  `API_ENABLE_TENANTS=true`, `X-Tenant-ID` activa el aislamiento por RLS (ver más abajo). **No hay autenticación:
+  cualquiera puede declarar cualquier inquilino**, así que no debe usarse para proteger datos reales.
+- **Límites conocidos:** cada petición abre sus propias conexiones (sin pool); el manejador es asíncrono pero llama
+  al código síncrono del pipeline en un hilo (`asyncio.to_thread`) en lugar de usar `AsyncConnection`; sin
+  autenticación ni límite de peticiones; CORS solo para `https://localhost:5013`; la latencia por petición no se ha
+  medido.
+
 ## Desarrollo
 
 Requiere Python 3.12.
@@ -384,10 +426,12 @@ umbrales de `data/gate/thresholds.json`. La CI lo ejecuta, junto con los tests d
   pre-commit solo mira lo preparado en el índice (`--staged`), así que en la CI no habría escaneado nada; el paso
   comprueba además que se escaneó al menos un commit, para que no pueda dar un verde vacío.
 - **Tests, RLS y regression gate:** servicio `pgvector/pgvector:pg17` (con `--shm-size`), instalación **sin torch**
-  (se usan los embeddings precalculados y versionados), Ruff, los tests de RLS por separado (fallan ante cualquier
-  fuga), el resto de tests, `python cli.py report --check` (el README no puede publicar cifras desfasadas), carga del
-  corpus en Postgres y `python cli.py gate`. Cualquier fallo de estos pasos
-  falla el trabajo.
+  (se usan los embeddings precalculados y versionados), Ruff, `python cli.py report --check` (el README no puede
+  publicar cifras desfasadas), carga del corpus en Postgres, los tests de RLS por separado (fallan ante cualquier
+  fuga), el resto de tests (incluida la paridad del endpoint con `evaluate` en FTS) y `python cli.py gate`.
+  Cualquier fallo de estos pasos falla el trabajo. **En la CI, un servicio que debería estar disponible no salta
+  los tests, los hace fallar** (`CI=true`); si no, una base de datos inaccesible dejaría la CI en verde sin haber
+  comprobado nada.
 - Las credenciales del servicio de Postgres del workflow son valores desechables de un contenedor efímero del
   runner, no secretos del proyecto.
 - **Ensayo previo:** los pasos se reprodujeron en local sobre una copia limpia (sin `.env`, sin `data/raw/`, sin el

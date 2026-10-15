@@ -4,6 +4,7 @@ import pytest
 
 from scripts import bench_index as bi
 from scripts import db, embeddings
+from tests.helpers import skip_or_fail
 
 # ---------- sin base de datos ----------
 
@@ -73,7 +74,7 @@ def bench_conn():
     try:
         conn = psycopg.connect(**db.conninfo(), autocommit=True)
     except (RuntimeError, psycopg.OperationalError) as error:
-        pytest.skip(f"Postgres no disponible: {error}")
+        skip_or_fail(f"Postgres no disponible: {error}")
     with conn:
         conn.execute("CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public")
         conn.execute(f"CREATE SCHEMA {name}")
