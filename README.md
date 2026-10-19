@@ -1,245 +1,515 @@
-# Evaluación de recuperación híbrida sobre legislación financiera de la UE
+# Hybrid retrieval evaluation on EU financial legislation
 
-Mini-proyecto que compara estrategias de recuperación sobre Postgres + pgvector y las evalúa
-con un golden set congelado. Las tablas de la sección «Resultados» las genera `python cli.py report` a partir de los
-ficheros de `results/`, y un test comprueba que el README no se desfasa. Otras cifras del texto (por ejemplo, las del
-truncamiento de embeddings o las de HNSW con RLS) están **transcritas** de la salida de scripts del repositorio, y cada
-sección indica de cuál.
+**English** · [Español](README.es.md)
 
-> **Estado:** los seis criterios de «hecho» están implementados y medidos (ver «Resultados»), y la CI de GitHub Actions
-> se ha ejecutado con éxito sobre el historial publicado. Si en el futuro el regression gate fallara por diferencias de
-> plataforma, habría que recalibrar sus umbrales con los números que muestre (ver «Regression gate»).
+## TL;DR
 
-## Qué se evaluará
+**What it is.** A reproducible experiment that measures how well three ways of searching find the right article in
+three EU financial regulations: AIFMD (Alternative Investment Fund Managers Directive), DORA (Digital Operational
+Resilience Act) and the AI Act (Artificial Intelligence Act). The three ways are keyword search (Postgres full-text
+search), semantic search (embeddings stored with pgvector) and a hybrid of both (Reciprocal Rank Fusion). It is built
+on Postgres + pgvector and comes with a frozen, human-labelled test set, a regression gate in CI (continuous
+integration), row-level tenant isolation and a small API you can query yourself.
 
-- Chunking por artículo frente a ventanas fijas.
-- Búsqueda de texto completo (FTS de Postgres) frente a búsqueda densa (pgvector) frente a
-  híbrido con Reciprocal Rank Fusion (RRF).
-- Métricas: Recall@K, MRR y nDCG@10 sobre un golden set congelado de 30–50 consultas
-  (paráfrasis, término exacto y multi-artículo con relevancia graduada).
-- Índices HNSW frente a IVFFlat (recall y latencia).
-- Aislamiento multi-inquilino con Row-Level Security (RLS) y un test que falla ante cualquier fuga.
-- GitHub Actions que falla si Recall@K cae por debajo de un umbral o si el test de RLS detecta
-  una fuga.
+**Headline results** (generated from `results/`; the full tables are in [Results](#results)):
+
+<!-- tldr:start -->
+- **Highest overall nDCG@10 among the main systems:** Hybrid FTS + dense, with 0.667 using windows (0.641 using articles), over 40 queries.
+- **The only comparisons that survive the multiple-comparison correction:** Hybrid FTS + dense (article) − Postgres FTS (article) (+0.158 nDCG@10); Hybrid FTS + dense (window) − Postgres FTS (window) (+0.148 nDCG@10). Every other difference between the main systems is not detectable with 40 queries.
+- **No single system wins on every query type** (window chunking, nDCG@10): paraphrase → Dense (bge-small) (0.666); exact term → BM25 (0.830); multi-article → Hybrid FTS + dense (0.710).
+
+nDCG@10 and Recall@10 with window chunking:
+
+| System | nDCG@10 | Recall@10 |
+|---|---|---|
+| BM25 | 0.584 | 0.744 |
+| Postgres FTS | 0.519 | 0.762 |
+| Dense (bge-small) | 0.644 | 0.771 |
+| Hybrid FTS + dense | 0.667 | 0.867 |
+| Hybrid BM25 + dense (exploratory) | 0.672 | 0.831 |
+<!-- tldr:end -->
+
+**How it fits together**
+
+```mermaid
+flowchart TB
+    subgraph DATA["1 · Frozen, versioned data"]
+        direction LR
+        EU["EUR-Lex<br/>Cellar API"] --> DL["Download +<br/>SHA-256 check"] --> CH["Chunking: article<br/>or 200-word windows"] --> EMB["Embeddings<br/>bge-small-en-v1.5<br/>(pre-computed)"]
+    end
+    subgraph PG["2 · Postgres + pgvector"]
+        direction LR
+        TBL[("chunks table<br/>text · tsvector · vector(384)")] --- RLS["Row-Level Security<br/>public corpus + tenants"]
+    end
+    subgraph RET["3 · Retrieval modes"]
+        direction LR
+        FTS["FTS<br/>keywords"] --> HYB["Hybrid<br/>RRF, k=60"]
+        DEN["Dense<br/>cosine similarity"] --> HYB
+    end
+    subgraph OUT["4 · Evaluation and quality gate"]
+        direction LR
+        GS["Golden set<br/>40 queries, graded<br/>human judgments"] --> EV["Recall · MRR · nDCG<br/>paired-bootstrap CIs"]
+        EV --> GATE["Regression gate<br/>(fails the CI)"]
+        EV --> REP["README tables<br/>(generated)"]
+    end
+    API["5 · FastAPI service<br/>POST /hybridretrievals<br/>(same code that was measured)"]
+    DATA --> PG --> RET
+    RET --> OUT
+    RET --> API
+```
+
+**Try it** (details in [Try the API](#try-the-api)):
+
+```bash
+docker compose up -d && python cli.py init-db && python cli.py load-db   # once; see "Development"
+uvicorn main:app --port 5013                                             # then open http://localhost:5013/docs
+```
+
+**What this project demonstrates**
+
+- **Retrieval engineering:** lexical, dense and hybrid search with Reciprocal Rank Fusion, written by hand on
+  Postgres + pgvector (no framework in the retriever).
+- **Evaluation as engineering:** a frozen golden set, Recall / MRR / nDCG, paired-bootstrap confidence intervals,
+  comparisons declared before computing them, a multiple-comparison correction, and exploratory results labelled as such.
+- **Reproducibility:** a hashed corpus, a pinned model revision, versioned embeddings, and README tables that are
+  generated by a script and checked in CI.
+- **Quality gates:** a regression gate and tenant-isolation tests that fail the CI, with tests that were themselves
+  verified by deliberately breaking the code (mutation checks).
+- **Data security:** Row-Level Security with an unprivileged role and fail-closed policies, plus an honest list of what
+  it does not cover.
+
+**Limits worth knowing before you read on**
+
+- 40 queries and a single annotator, without pooling: most differences between systems are **not statistically
+  detectable** (see [Results](#results)).
+- Only the articles are indexed (no recitals or annexes) and queries must be written in English.
+- The API has no authentication and no connection pool: it is a demonstration, not a production service.
+
+> **Status:** all seven goals below are implemented and measured, and the GitHub Actions CI has run successfully on
+> the published history. If the regression gate ever failed because of platform differences, its thresholds would have
+> to be recalibrated with the numbers it shows (see [Regression gate](#regression-gate)).
+
+## What is evaluated
+
+Seven goals, all implemented and measured:
+
+1. Chunking by article versus fixed-size windows.
+2. Postgres full-text search (FTS) versus dense search (pgvector) versus hybrid search with Reciprocal Rank Fusion (RRF).
+3. Recall@K, MRR (Mean Reciprocal Rank) and nDCG@10 (normalized Discounted Cumulative Gain) on a frozen golden set of
+   40 queries: 15 paraphrases, 15 exact terms and 10 multi-article queries with graded relevance.
+4. HNSW versus IVFFlat indexes (recall and latency).
+5. Multi-tenant isolation with Row-Level Security (RLS) and a test that fails on any leak.
+6. A GitHub Actions workflow that fails if Recall@K drops below a threshold or if the RLS test detects a leak.
+7. Unit tests of the evaluator with a hand-worked example (also cross-checked against scikit-learn).
 
 ## Corpus
 
-Texto publicado (no consolidado) de tres actos de la UE, descargado de la API Cellar de EUR-Lex:
+Published (not consolidated) text of three EU acts, downloaded from the EUR-Lex Cellar API:
 
-| Acto | CELEX |
-|------|-------|
-| Directiva AIFMD 2011/61/UE | 32011L0061 |
-| Reglamento DORA (UE) 2022/2554 | 32022R2554 |
-| Reglamento de IA (UE) 2024/1689 | 32024R1689 |
+| Act | CELEX |
+|-----|-------|
+| AIFMD Directive 2011/61/EU | 32011L0061 |
+| DORA Regulation (EU) 2022/2554 | 32022R2554 |
+| AI Act, Regulation (EU) 2024/1689 | 32024R1689 |
 
-El corpus se congela guardando el SHA-256 de cada descarga y versionando los chunks en JSONL.
+The corpus is frozen by storing the SHA-256 hash of each download and versioning the chunks as JSONL.
 
-## Datos y privacidad
+- `data/raw/`: HTML downloaded from EUR-Lex. **Not versioned**: it is downloaded again and validated against the hash.
+- `data/corpus.sha256`: the frozen hashes of the corpus. It **is** versioned and guarantees that everybody works on the
+  same text.
+- `data/chunks/`: chunks as JSONL (`articles.jsonl` and `windows_w200_o40.jsonl`). They **are** versioned. A test checks
+  that regenerating them from the frozen corpus gives exactly the same files (that test needs the downloaded HTML, so
+  it runs locally and is skipped in the CI).
 
-Solo se usan datos públicos o sintéticos. No hay datos de clientes en este repositorio.
+**Data and privacy.** Only public or synthetic data is used. There is no customer data in this repository.
 
-## Resultados
+## Results
 
-Qué leer de esta sección y qué no:
+What to read from this section, and what not to:
 
-- **Una sola persona juzgó la relevancia** de **40 consultas** sobre un corpus de 248 artículos, sin pooling, así que
-  las diferencias pequeñas entre sistemas **no son estadísticamente sólidas**. Los intervalos son de bootstrap pareado
-  sobre consultas y no recogen la variabilidad entre construcciones de un índice aproximado.
-- Las **comparaciones principales** se declararon antes de calcularlas; las **exploratorias** (ideas posteriores a ver
-  resultados) se informan aparte y con una corrección más estricta. Con tantas comparaciones, que alguna excluya el
-  cero al 95 % es esperable por azar: por eso se muestra también la corrección de Bonferroni.
-- Las métricas usan relevante = grado ≥ 2 para Recall y MRR, y ganancia lineal en nDCG (ver «Evaluación»).
-- Todo el bloque siguiente lo escribe `python cli.py report`; `python cli.py report --check` falla si está
-  desactualizado.
+- **A single person judged relevance** for **40 queries** over a corpus of 248 articles, without pooling, so small
+  differences between systems are **not statistically solid**. The intervals come from a paired bootstrap over
+  queries and do not capture the variability between builds of an approximate index.
+- The **primary comparisons** were declared before computing them; the **exploratory** ones (ideas that came after
+  seeing results) are reported separately and with a stricter correction. With so many comparisons, it is to be
+  expected that some will exclude zero at 95% by chance: that is why the Bonferroni correction is also shown.
+- The metrics use relevant = grade ≥ 2 for Recall and MRR, and linear gain in nDCG (see
+  [Evaluation method](#golden-set-and-evaluation-method)).
+- The whole block below is written by `python cli.py report`; `python cli.py report --check` fails if it is out of
+  date.
 
 <!-- results:start -->
-#### Métricas globales (40 consultas)
+#### Overall metrics (40 queries)
 
-| Sistema | Chunking | Recall@1 | Recall@3 | Recall@5 | Recall@10 | nDCG@10 [IC 95 %] | MRR@10 |
+| System | Chunking | Recall@1 | Recall@3 | Recall@5 | Recall@10 | nDCG@10 [95% CI] | MRR@10 |
 |---|---|---|---|---|---|---|---|
-| BM25 | artículo | 0,252 | 0,431 | 0,598 | 0,727 | 0,545 [0,443, 0,647] | 0,544 |
-| BM25 | ventanas | 0,310 | 0,552 | 0,585 | 0,744 | 0,584 [0,475, 0,689] | 0,608 |
-| FTS Postgres | artículo | 0,237 | 0,371 | 0,496 | 0,675 | 0,483 [0,377, 0,593] | 0,464 |
-| FTS Postgres | ventanas | 0,242 | 0,369 | 0,523 | 0,762 | 0,519 [0,420, 0,619] | 0,507 |
-| Denso (bge-small) | artículo | 0,327 | 0,500 | 0,604 | 0,690 | 0,555 [0,451, 0,658] | 0,623 |
-| Denso (bge-small) | ventanas | 0,377 | 0,598 | 0,640 | 0,771 | 0,644 [0,546, 0,740] | 0,688 |
-| Híbrido FTS + denso | artículo | 0,340 | 0,515 | 0,683 | 0,827 | 0,641 [0,555, 0,725] | 0,675 |
-| Híbrido FTS + denso | ventanas | 0,369 | 0,577 | 0,673 | 0,867 | 0,667 [0,575, 0,759] | 0,693 |
-| Híbrido BM25 + denso (exploratorio) | artículo | 0,356 | 0,510 | 0,644 | 0,767 | 0,615 [0,519, 0,709] | 0,696 |
-| Híbrido BM25 + denso (exploratorio) | ventanas | 0,365 | 0,613 | 0,690 | 0,831 | 0,672 [0,586, 0,759] | 0,726 |
+| BM25 | article | 0.252 | 0.431 | 0.598 | 0.727 | 0.545 [0.443, 0.647] | 0.544 |
+| BM25 | window | 0.310 | 0.552 | 0.585 | 0.744 | 0.584 [0.475, 0.689] | 0.608 |
+| Postgres FTS | article | 0.237 | 0.371 | 0.496 | 0.675 | 0.483 [0.377, 0.593] | 0.464 |
+| Postgres FTS | window | 0.242 | 0.369 | 0.523 | 0.762 | 0.519 [0.420, 0.619] | 0.507 |
+| Dense (bge-small) | article | 0.327 | 0.500 | 0.604 | 0.690 | 0.555 [0.451, 0.658] | 0.623 |
+| Dense (bge-small) | window | 0.377 | 0.598 | 0.640 | 0.771 | 0.644 [0.546, 0.740] | 0.688 |
+| Hybrid FTS + dense | article | 0.340 | 0.515 | 0.683 | 0.827 | 0.641 [0.555, 0.725] | 0.675 |
+| Hybrid FTS + dense | window | 0.369 | 0.577 | 0.673 | 0.867 | 0.667 [0.575, 0.759] | 0.693 |
+| Hybrid BM25 + dense (exploratory) | article | 0.356 | 0.510 | 0.644 | 0.767 | 0.615 [0.519, 0.709] | 0.696 |
+| Hybrid BM25 + dense (exploratory) | window | 0.365 | 0.613 | 0.690 | 0.831 | 0.672 [0.586, 0.759] | 0.726 |
 
-#### nDCG@10 por tipo de consulta
+#### nDCG@10 by query type
 
-| Sistema | Chunking | Paráfrasis (15) | Término exacto (15) | Multi-artículo (10) |
+| System | Chunking | Paraphrase (15) | Exact term (15) | Multi-article (10) |
 |---|---|---|---|---|
-| BM25 | artículo | 0,384 | 0,727 | 0,515 |
-| BM25 | ventanas | 0,378 | 0,830 | 0,521 |
-| FTS Postgres | artículo | 0,425 | 0,617 | 0,369 |
-| FTS Postgres | ventanas | 0,366 | 0,613 | 0,606 |
-| Denso (bge-small) | artículo | 0,688 | 0,360 | 0,649 |
-| Denso (bge-small) | ventanas | 0,666 | 0,619 | 0,649 |
-| Híbrido FTS + denso | artículo | 0,702 | 0,575 | 0,651 |
-| Híbrido FTS + denso | ventanas | 0,640 | 0,665 | 0,710 |
-| Híbrido BM25 + denso (exploratorio) | artículo | 0,613 | 0,592 | 0,652 |
-| Híbrido BM25 + denso (exploratorio) | ventanas | 0,566 | 0,770 | 0,685 |
+| BM25 | article | 0.384 | 0.727 | 0.515 |
+| BM25 | window | 0.378 | 0.830 | 0.521 |
+| Postgres FTS | article | 0.425 | 0.617 | 0.369 |
+| Postgres FTS | window | 0.366 | 0.613 | 0.606 |
+| Dense (bge-small) | article | 0.688 | 0.360 | 0.649 |
+| Dense (bge-small) | window | 0.666 | 0.619 | 0.649 |
+| Hybrid FTS + dense | article | 0.702 | 0.575 | 0.651 |
+| Hybrid FTS + dense | window | 0.640 | 0.665 | 0.710 |
+| Hybrid BM25 + dense (exploratory) | article | 0.613 | 0.592 | 0.652 |
+| Hybrid BM25 + dense (exploratory) | window | 0.566 | 0.770 | 0.685 |
 
-#### Comparaciones principales (nDCG@10 global, bootstrap pareado sobre consultas)
+#### Primary comparisons (overall nDCG@10, paired bootstrap over queries)
 
-- Con chunking por artículo, la cifra global más alta de nDCG@10 entre los sistemas principales es la de **Híbrido FTS + denso** (0,641).
-- Con chunking por ventanas, la cifra global más alta de nDCG@10 entre los sistemas principales es la de **Híbrido FTS + denso** (0,667).
-- Que una cifra sea la más alta **no implica** que la diferencia sea detectable: cuentan las comparaciones de abajo, no el orden de las tablas.
-- De las 15 comparaciones principales, **5** excluyen el cero con un IC del 95 % y **2** lo siguen excluyendo tras la corrección de Bonferroni para 15.
-- Las que sobreviven a la corrección son: **Híbrido FTS + denso (artículo) − FTS Postgres (artículo)**; **Híbrido FTS + denso (ventanas) − FTS Postgres (ventanas)**.
-- Excluyen el cero solo al 95 %, sin corrección (indicios, no hallazgos): Denso (bge-small) (ventanas) − FTS Postgres (ventanas); Denso (bge-small) (ventanas) − Denso (bge-small) (artículo); Híbrido FTS + denso (artículo) − Denso (bge-small) (artículo).
+- With article chunking, the highest overall nDCG@10 among the main systems is **Hybrid FTS + dense** (0.641).
+- With window chunking, the highest overall nDCG@10 among the main systems is **Hybrid FTS + dense** (0.667).
+- Having the highest figure does **not imply** that the difference is detectable: what counts are the comparisons below, not the order of the tables.
+- Of the 15 primary comparisons, **5** exclude zero with a 95% CI and **2** still exclude it after the Bonferroni correction for 15.
+- Those that survive the correction are: **Hybrid FTS + dense (article) − Postgres FTS (article)**; **Hybrid FTS + dense (window) − Postgres FTS (window)**.
+- Exclude zero only at 95%, without correction (hints, not findings): Dense (bge-small) (window) − Postgres FTS (window); Dense (bge-small) (window) − Dense (bge-small) (article); Hybrid FTS + dense (article) − Dense (bge-small) (article).
 
-| Comparación (A − B) | Dif. nDCG@10 | IC 95 % | IC Bonferroni (15) | Excluye 0 (95 %) | Excluye 0 (Bonferroni) |
+| Comparison (A − B) | nDCG@10 diff. | 95% CI | Bonferroni CI (15) | Excludes 0 (95%) | Excludes 0 (Bonferroni) |
 |---|---|---|---|---|---|
-| BM25 (artículo) − FTS Postgres (artículo) | +0,062 | [−0,039, +0,162] | [−0,096, +0,214] | no | no |
-| BM25 (ventanas) − FTS Postgres (ventanas) | +0,065 | [−0,026, +0,163] | [−0,065, +0,212] | no | no |
-| FTS Postgres (ventanas) − FTS Postgres (artículo) | +0,036 | [−0,045, +0,117] | [−0,087, +0,158] | no | no |
-| BM25 (ventanas) − BM25 (artículo) | +0,039 | [−0,005, +0,080] | [−0,029, +0,101] | no | no |
-| Denso (bge-small) (artículo) − BM25 (artículo) | +0,010 | [−0,138, +0,152] | [−0,210, +0,218] | no | no |
-| Denso (bge-small) (ventanas) − BM25 (ventanas) | +0,061 | [−0,074, +0,191] | [−0,142, +0,254] | no | no |
-| Denso (bge-small) (artículo) − FTS Postgres (artículo) | +0,072 | [−0,081, +0,219] | [−0,161, +0,287] | no | no |
-| Denso (bge-small) (ventanas) − FTS Postgres (ventanas) | +0,125 | [+0,011, +0,233] | [−0,052, +0,285] | sí | no |
-| Denso (bge-small) (ventanas) − Denso (bge-small) (artículo) | +0,089 | [+0,014, +0,177] | [−0,014, +0,229] | sí | no |
-| Híbrido FTS + denso (artículo) − Denso (bge-small) (artículo) | +0,086 | [+0,015, +0,162] | [−0,021, +0,198] | sí | no |
-| Híbrido FTS + denso (ventanas) − Denso (bge-small) (ventanas) | +0,023 | [−0,048, +0,095] | [−0,081, +0,137] | no | no |
-| Híbrido FTS + denso (artículo) − FTS Postgres (artículo) | +0,158 | [+0,059, +0,255] | [+0,016, +0,300] | sí | **sí** |
-| Híbrido FTS + denso (ventanas) − FTS Postgres (ventanas) | +0,148 | [+0,068, +0,232] | [+0,025, +0,278] | sí | **sí** |
-| Híbrido FTS + denso (artículo) − BM25 (artículo) | +0,097 | [−0,016, +0,209] | [−0,072, +0,266] | no | no |
-| Híbrido FTS + denso (ventanas) − BM25 (ventanas) | +0,083 | [−0,033, +0,202] | [−0,093, +0,256] | no | no |
+| BM25 (article) − Postgres FTS (article) | +0.062 | [−0.039, +0.162] | [−0.096, +0.214] | no | no |
+| BM25 (window) − Postgres FTS (window) | +0.065 | [−0.026, +0.163] | [−0.065, +0.212] | no | no |
+| Postgres FTS (window) − Postgres FTS (article) | +0.036 | [−0.045, +0.117] | [−0.087, +0.158] | no | no |
+| BM25 (window) − BM25 (article) | +0.039 | [−0.005, +0.080] | [−0.029, +0.101] | no | no |
+| Dense (bge-small) (article) − BM25 (article) | +0.010 | [−0.138, +0.152] | [−0.210, +0.218] | no | no |
+| Dense (bge-small) (window) − BM25 (window) | +0.061 | [−0.074, +0.191] | [−0.142, +0.254] | no | no |
+| Dense (bge-small) (article) − Postgres FTS (article) | +0.072 | [−0.081, +0.219] | [−0.161, +0.287] | no | no |
+| Dense (bge-small) (window) − Postgres FTS (window) | +0.125 | [+0.011, +0.233] | [−0.052, +0.285] | yes | no |
+| Dense (bge-small) (window) − Dense (bge-small) (article) | +0.089 | [+0.014, +0.177] | [−0.014, +0.229] | yes | no |
+| Hybrid FTS + dense (article) − Dense (bge-small) (article) | +0.086 | [+0.015, +0.162] | [−0.021, +0.198] | yes | no |
+| Hybrid FTS + dense (window) − Dense (bge-small) (window) | +0.023 | [−0.048, +0.095] | [−0.081, +0.137] | no | no |
+| Hybrid FTS + dense (article) − Postgres FTS (article) | +0.158 | [+0.059, +0.255] | [+0.016, +0.300] | yes | **yes** |
+| Hybrid FTS + dense (window) − Postgres FTS (window) | +0.148 | [+0.068, +0.232] | [+0.025, +0.278] | yes | **yes** |
+| Hybrid FTS + dense (article) − BM25 (article) | +0.097 | [−0.016, +0.209] | [−0.072, +0.266] | no | no |
+| Hybrid FTS + dense (window) − BM25 (window) | +0.083 | [−0.033, +0.202] | [−0.093, +0.256] | no | no |
 
-#### Comparaciones exploratorias (ideas posteriores a ver los resultados)
+#### Exploratory comparisons (ideas that came after seeing the results)
 
-Corrección de Bonferroni sobre 21 (las 15 principales más estas 6). 1 de 6 excluyen el cero al 95 % y 0 tras la corrección.
+Bonferroni correction over 21 (the 15 primary comparisons plus these 6). 1 of 6 exclude zero at 95% and 0 after the correction.
 
-| Comparación (A − B) | Dif. nDCG@10 | IC 95 % | IC Bonferroni (21) | Excluye 0 (95 %) | Excluye 0 (Bonferroni) |
+| Comparison (A − B) | nDCG@10 diff. | 95% CI | Bonferroni CI (21) | Excludes 0 (95%) | Excludes 0 (Bonferroni) |
 |---|---|---|---|---|---|
-| Híbrido BM25 + denso (exploratorio) (artículo) − BM25 (artículo) | +0,070 | [−0,016, +0,154] | [−0,060, +0,198] | no | no |
-| Híbrido BM25 + denso (exploratorio) (artículo) − Denso (bge-small) (artículo) | +0,060 | [−0,022, +0,145] | [−0,068, +0,193] | no | no |
-| Híbrido BM25 + denso (exploratorio) (artículo) − Híbrido FTS + denso (artículo) | −0,026 | [−0,101, +0,037] | [−0,142, +0,064] | no | no |
-| Híbrido BM25 + denso (exploratorio) (ventanas) − BM25 (ventanas) | +0,089 | [+0,008, +0,166] | [−0,035, +0,213] | sí | no |
-| Híbrido BM25 + denso (exploratorio) (ventanas) − Denso (bge-small) (ventanas) | +0,028 | [−0,046, +0,104] | [−0,087, +0,145] | no | no |
-| Híbrido BM25 + denso (exploratorio) (ventanas) − Híbrido FTS + denso (ventanas) | +0,005 | [−0,072, +0,084] | [−0,115, +0,121] | no | no |
+| Hybrid BM25 + dense (exploratory) (article) − BM25 (article) | +0.070 | [−0.016, +0.154] | [−0.060, +0.198] | no | no |
+| Hybrid BM25 + dense (exploratory) (article) − Dense (bge-small) (article) | +0.060 | [−0.022, +0.145] | [−0.068, +0.193] | no | no |
+| Hybrid BM25 + dense (exploratory) (article) − Hybrid FTS + dense (article) | −0.026 | [−0.101, +0.037] | [−0.142, +0.064] | no | no |
+| Hybrid BM25 + dense (exploratory) (window) − BM25 (window) | +0.089 | [+0.008, +0.166] | [−0.035, +0.213] | yes | no |
+| Hybrid BM25 + dense (exploratory) (window) − Dense (bge-small) (window) | +0.028 | [−0.046, +0.104] | [−0.087, +0.145] | no | no |
+| Hybrid BM25 + dense (exploratory) (window) − Hybrid FTS + dense (window) | +0.005 | [−0.072, +0.084] | [−0.115, +0.121] | no | no |
 
-#### Regression gate (margen 0,010, decisión manual)
+#### Regression gate (margin 0.010, manual decision)
 
-| Chunking | Métrica | Valor en la calibración | Umbral |
+| Chunking | Metric | Value at calibration | Threshold |
 |---|---|---|---|
-| artículo | recall@10 | 0,827 | 0,815 |
-| artículo | ndcg@10 | 0,641 | 0,630 |
-| ventanas | recall@10 | 0,867 | 0,855 |
-| ventanas | ndcg@10 | 0,667 | 0,655 |
+| article | recall@10 | 0.827 | 0.815 |
+| article | ndcg@10 | 0.641 | 0.630 |
+| window | recall@10 | 0.867 | 0.855 |
+| window | ndcg@10 | 0.667 | 0.655 |
 
-#### Índices aproximados (recall@10 frente a la búsqueda exacta y latencia mediana)
+#### Approximate indexes (recall@10 against exact search, and median latency)
 
-| Conjunto | Método | Parámetros | Recall@10 | Latencia (ms) | Construcción (s) | Índice (MB) |
+| Dataset | Method | Parameters | Recall@10 | Latency (ms) | Build (s) | Index (MB) |
 |---|---|---|---|---|---|---|
-| Corpus real, ventanas (719 filas) | Exacta (referencia) | — | 1,000 | 0,78 | — | — |
-|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 0,995 | 0,84 | 0,1 | 1,5 |
-|  | IVFFlat (probes=1) | lists=27 | 0,562 | 0,77 | 0,0 | 1,3 |
-|  | IVFFlat (probes=10) | lists=27 | 0,963 | 0,74 | 0,0 | 1,3 |
-| Corpus real, artículo (248 filas) | Exacta (referencia) | — | 1,000 | 0,74 | — | — |
-|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 1,000 | 0,90 | 0,0 | 0,5 |
-|  | IVFFlat (probes=1) | lists=16 | 0,575 | 0,62 | 0,0 | 0,5 |
-|  | IVFFlat (probes=10) | lists=16 | 0,983 | 0,65 | 0,0 | 0,5 |
-| Sintético (100.000 filas) | Exacta (referencia) | — | 1,000 | 32,81 | — | — |
-|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 0,993 | 1,35 | 31,6 | 204,8 |
-|  | IVFFlat (probes=1) | lists=100 | 0,998 | 1,46 | 2,6 | 164,3 |
-|  | IVFFlat (probes=10) | lists=100 | 1,000 | 6,83 | 2,6 | 164,3 |
+| Real corpus, window (719 rows) | Exact (reference) | — | 1.000 | 0.78 | — | — |
+|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 0.995 | 0.84 | 0.1 | 1.5 |
+|  | IVFFlat (probes=1) | lists=27 | 0.562 | 0.77 | 0.0 | 1.3 |
+|  | IVFFlat (probes=10) | lists=27 | 0.963 | 0.74 | 0.0 | 1.3 |
+| Real corpus, article (248 rows) | Exact (reference) | — | 1.000 | 0.74 | — | — |
+|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 1.000 | 0.90 | 0.0 | 0.5 |
+|  | IVFFlat (probes=1) | lists=16 | 0.575 | 0.62 | 0.0 | 0.5 |
+|  | IVFFlat (probes=10) | lists=16 | 0.983 | 0.65 | 0.0 | 0.5 |
+| Synthetic (100,000 rows) | Exact (reference) | — | 1.000 | 32.81 | — | — |
+|  | HNSW (ef_search=40) | ef_construction=64, m=16 | 0.993 | 1.35 | 31.6 | 204.8 |
+|  | IVFFlat (probes=1) | lists=100 | 0.998 | 1.46 | 2.6 | 164.3 |
+|  | IVFFlat (probes=10) | lists=100 | 1.000 | 6.83 | 2.6 | 164.3 |
 <!-- results:end -->
 
-## API: probar el recuperador
+## Try the API
 
 ```bash
-docker compose up -d && python cli.py init-db && python cli.py load-db   # una vez (ver «Postgres»)
+docker compose up -d && python cli.py init-db && python cli.py load-db   # once (see "Development")
 uvicorn main:app --port 5013
 ```
 
-Abre <http://localhost:5013/docs> (interfaz interactiva) o usa `curl`:
+Open <http://localhost:5013/docs> (interactive interface) or use `curl`:
 
 ```bash
 curl -s -X POST localhost:5013/hybridretrievals -H 'content-type: application/json' \
   -d '{"query": "What must a bank write into its contract with a cloud provider?", "top_k": 5}'
 ```
 
-| Campo | Valores | Por defecto |
+| Field | Values | Default |
 |---|---|---|
-| `query` | de 1 a 500 caracteres, **en inglés**; las siglas cortas (`TLPT`) son válidas | — |
-| `top_k` | 1 a 50 artículos distintos | 10 |
-| `mode` | `hybrid` (FTS + denso con RRF k=60), `fts`, `dense` | `hybrid` |
-| `chunking` | `window` (ventanas de 200 palabras), `article` | `window` |
+| `query` | 1 to 500 characters, **in English**; short acronyms (`TLPT`) are valid | — |
+| `top_k` | 1 to 50 distinct articles | 10 |
+| `mode` | `hybrid` (FTS + dense with RRF k=60), `fts`, `dense` | `hybrid` |
+| `chunking` | `window` (200-word windows), `article` | `window` |
 
-Cada resultado trae `rank`, `act`, `celex`, `article`, `title` y un **fragmento del chunk que mejor encajó**.
-`GET /health` indica si responden la base de datos y el modelo.
+Each result carries `rank`, `act`, `celex`, `article`, `title` and a **snippet of the chunk that matched best**.
+`GET /health` reports whether the database and the model are responding.
 
-- **Dos niveles de instalación:** con `requirements.txt` (sin torch) funciona `mode=fts`. `hybrid` y `dense` embeben
-  la consulta con el modelo y necesitan `pip install -r requirements-embeddings.txt` (torch, cientos de MB); sin
-  él devuelven un **503** que lo explica. El modelo se carga al arrancar el servidor, fuera del bucle de eventos.
-- **Qué garantiza que el endpoint hace lo que se midió:** `tests/test_api_parity.py` comprueba que, para las 40
-  consultas del golden set, el endpoint devuelve **exactamente** los rankings que `evaluate` midió, con FTS, denso e
-  híbrido y con ambos chunkings. En la CI se ejecuta la parte de FTS; las que necesitan el modelo, solo en local.
-- **Errores** (`{"errors": [{"code", "title"}]}`): `E0001` consulta vacía o de más de 500 caracteres (400),
-  `E0002` modelo no disponible (503), `E0003` cabecera `X-Tenant-ID` no válida (400), `E0004` base de datos no
-  disponible o sin cargar (503). Los cuerpos mal formados dan el 422 habitual de FastAPI. Los fallos inesperados dan
-  un 500 con un `error_id` y sin detalles internos.
-- **Inquilinos (demostración, no seguridad):** por defecto solo se ve el corpus público y la cabecera se ignora. Con
-  `API_ENABLE_TENANTS=true`, `X-Tenant-ID` activa el aislamiento por RLS (ver más abajo). **No hay autenticación:
-  cualquiera puede declarar cualquier inquilino**, así que no debe usarse para proteger datos reales.
-- **Límites conocidos:** cada petición abre sus propias conexiones (sin pool); el manejador es asíncrono pero llama
-  al código síncrono del pipeline en un hilo (`asyncio.to_thread`) en lugar de usar `AsyncConnection`; sin
-  autenticación ni límite de peticiones; CORS solo para `https://localhost:5013`; la latencia por petición no se ha
-  medido.
+- **Two installation levels:** with `requirements.txt` (no torch) `mode=fts` works. `hybrid` and `dense` embed the
+  query with the model and need `pip install -r requirements-embeddings.txt` (torch, hundreds of MB); without it they
+  return a **503** that explains why. The model is loaded when the server starts, outside the event loop.
+- **What guarantees the endpoint does what was measured:** `tests/test_api_parity.py` checks that, for the 40 golden-set
+  queries, the endpoint returns **exactly** the rankings that `evaluate` measured, with FTS, dense and hybrid and with
+  both chunkings. The CI runs the FTS part; the parts that need the model run only locally.
+- **Errors** (`{"errors": [{"code", "title"}]}`): `E0001` empty query or longer than 500 characters (400), `E0002`
+  model unavailable (503), `E0003` invalid `X-Tenant-ID` header (400), `E0004` database unavailable or not loaded
+  (503). Malformed bodies give FastAPI's usual 422. Unexpected failures give a 500 with an `error_id` and no internal
+  details.
+- **Tenants (a demonstration, not security):** by default only the public corpus is visible and the header is ignored.
+  With `API_ENABLE_TENANTS=true`, `X-Tenant-ID` activates RLS isolation (see
+  [Multi-tenant isolation](#multi-tenant-isolation-rls)). **There is no authentication: anyone can claim any tenant**,
+  so it must not be used to protect real data.
+- **Known limits:** every request opens its own connections (no pool); the handler is asynchronous but calls the
+  pipeline's synchronous code in a thread (`asyncio.to_thread`) instead of using `AsyncConnection`; no authentication
+  or rate limiting; CORS only for `https://localhost:5013`; per-request latency has not been measured.
 
-## Desarrollo
+## How it works
 
-Requiere Python 3.12.
+### Chunking
+
+- **Scope:** articles only (248: AIFMD 71, DORA 64, AI Act 113). Recitals and annexes are left out.
+- **By article:** one chunk per article, with the header `Article N. Title`.
+- **By windows:** 200 words of the body with an overlap of 40, never crossing an article boundary; if the remaining
+  tail has fewer than 50 new words it is merged into the previous window. Every window starts with the header
+  `Article N. Title` (its words do not count towards the 200).
+- **Fidelity:** the text is literal; only whitespace is normalized. The rows of `(a) ...` lists are joined into one line.
+- **Evaluation:** relevance judgments are given per article (`celex` + `article`), so both strategies are measured
+  with the same judgments.
+
+### Embeddings
+
+- **Model:** `BAAI/bge-small-en-v1.5` (MIT, 384 dimensions, 512-token window) pinned by commit hash (`5c38ec7c…`).
+  Chosen with criteria decided before measuring (window, licence, size, configuration risk); it was not compared with
+  others on the golden set. `all-MiniLM-L6-v2` was discarded because of its 256-token window.
+- **Queries** carry the model's retrieval instruction; **chunks** carry no prefix. Vectors are normalized (L2).
+- **Pre-computed and versioned** in `data/embeddings/` with a `manifest.json` (model, revision, library versions and the
+  hashes of each file and of its source). `load_embeddings` refuses to return stale vectors. The API and the CI do not
+  need torch; only `python cli.py embed` needs `pip install -r requirements-embeddings.txt`.
+- **Truncation, measured** with the real tokenizer: **108 of the 248 articles (44%) exceed 512 tokens** and are
+  truncated (on average they lose 36% of their tokens); **none of the 719 windows** is truncated (maximum 416 tokens).
+  It is a property of "one chunk per article" combined with a model of fixed context length.
+- Vectors can differ in the last decimal between platforms; that is why `--verify` requires cosine >= 0.9999 and not
+  bit-for-bit equality.
+
+### Retrieval systems on Postgres
+
+- **FTS** (`scripts/fts.py`): configuration `'english'`; query = OR of the terms (by default Postgres requires all of
+  them); ranking `ts_rank_cd` with default values; ties broken by `chunk_id`. Decisions fixed before measuring.
+- **Dense** (`scripts/dense.py`): column `embedding vector(384)` in the same `chunks` table; cosine distance (`<=>`) with
+  **exact search, no approximate index**; ties broken by `chunk_id`. `load-db` also loads the vectors from
+  `data/embeddings/` (and refuses if they are stale) and `evaluate --system dense` uses the pre-computed vectors of the
+  golden-set queries, so it does not need torch. The `vector` extension is always installed in the `public` schema.
+- **Hybrid** (`scripts/rrf.py` and `scripts/hybrid.py`): RRF with k = 60 over the FTS and dense rankings, each with its
+  200 best chunks. Fusion happens **at chunk level** (by `chunk_id`) and the result is then converted to distinct
+  articles, exactly like in the other systems. RRF is a pure function with tests (including a hand-computed example).
+- **Hybrid BM25 + dense** (`--system hybrid-bm25`, **exploratory**): the same RRF fusion with BM25 as the lexical input.
+  It is an idea that came after seeing the results of the FTS hybrid, so its comparisons were declared exploratory and
+  corrected with Bonferroni over 21 (the 15 primary ones plus these 6). The result is reported as it is; it does not
+  change the main system.
+- `evaluate --system fts|dense|hybrid|hybrid-bm25` refuses to run if the chunks (and, for dense, the embeddings) loaded
+  in the database do not match `data/chunks/` (repeat `load-db`).
+- Database tests use an isolated temporary schema and skip themselves when there is no Postgres (in the CI they fail
+  instead).
+
+### Golden set and evaluation method
+
+- `data/golden/queries.jsonl`: queries (`query_id`, `type`, `theme`, `query`). Types: `paraphrase`, `exact_term` and
+  `multi_article`. Queries are in English, like the corpus.
+- `data/golden/qrels.jsonl`: relevance judgments, **one line per query-article pair** (`query_id`, `celex`, `article`,
+  `grade`). They are written by a person; no LLM labels.
+- **Scale:** 3 = the article answers directly; 2 = contributes a substantial part; 1 = related but tangential;
+  unwritten = not relevant. The grade measures how much that article covers by itself, not the order in which it
+  should appear; several articles can share a grade.
+- **Inclusion criterion:** an article gets a judgment if it **deals with** the concept of the query, not for merely
+  mentioning it in passing. That is why some articles contain the term of an `exact_term` query and have no judgment;
+  `validate-golden` lists them as information for review.
+- **Method:** queries written "from the article", judged by reading the text, without the help of any search engine,
+  and frozen before running any retrieval.
+- **Limitations:** a small set (40 queries) and a single annotator; the "from the article" method slightly favours the
+  source article. Small differences between systems will not be statistically solid.
+- **No pooling (an explicit decision):** the judgments are the independent ones from phase 1; no pooling round was run.
+  A relevant article that the golden set did not judge counts as a failure of the system that retrieves it, so
+  **absolute recall may be underestimated**, and not necessarily equally for all systems: those that retrieve relevant
+  articles different from the judged ones may be penalized. Measured: the top 10 of the 10 evaluated systems (5 × 2
+  chunkings) leaves **913 query-article pairs without judgment**, covering 217 of the corpus's 248 articles; the fraction
+  that is relevant was not estimated. Judging them all would have meant about 723,000 words of reading, and it was
+  discarded because of its cost. Differences between systems must be read with this caution.
+
+**Evaluation method.** The metrics live in `scripts/metrics.py` as pure functions, with hand-worked tests
+(`tests/test_metrics.py`). Decisions fixed **before** running any retrieval:
+
+- **Unit:** the article. Chunk rankings (windows) are converted to distinct articles, keeping the best position of each.
+- **Relevant** (Recall and MRR): grade >= 2. Grade 1 only counts in nDCG.
+- **Metrics:** Recall@1, @3, @5 and @10, MRR@10 and nDCG@10 with linear gain (3, 2, 1). The exponential gain (7, 3, 1)
+  remains as a sensitivity analysis.
+- **Uncertainty:** paired bootstrap over queries (10,000 resamples, fixed seed, 95% percentile interval), also per
+  query type. With 15, 15 and 10 queries per type, the intervals will be wide.
+
+Hand-worked example (judgments A=3, B=2, C=1; ranking X, B, A, Y, C with X and Y irrelevant): Recall@1 = 0,
+Recall@2 = 0.5, Recall@3 = 1, MRR = 0.5 and nDCG@5 = 0.6612 (DCG = 2/log2(3) + 3/log2(4) + 1/log2(6) = 3.1487; ideal
+A, B, C = 4.7619).
+
+### Approximate indexes: HNSW versus IVFFlat
+
+`python cli.py bench-index` measures recall against **Postgres exact search** (the reference) and latency, with
+parameters fixed before measuring: HNSW `m=16`, `ef_construction=64` and a sweep of `ef_search`; IVFFlat with
+`lists = rows/1000` (pgvector's guideline) and a sweep of `probes`. The full figures are in
+`results/index_benchmark.json`. Two parts, with different limits:
+
+- **Real corpus (719 windows and 248 articles):** at this scale **exact search is as fast as any index** (≈0.7–0.8 ms in
+  every case, where the fixed cost of the query dominates), so indexes bring nothing in latency. They do show recall:
+  HNSW with `ef_search=40` ≥ 0.995 and IVFFlat with `probes=1` between 0.56 and 0.58, with queries that return fewer
+  than 10 results.
+- **Synthetic scale (100,000 vectors):** **synthetic** data (perturbations of real vectors with cosine 0.93 to their
+  origin, calibrated with the cosine to the 10 nearest neighbours of the real windows). Exact search takes ≈33 ms;
+  HNSW with `ef_search=40` ≈1.4 ms with recall ≈0.99; IVFFlat with `probes=1` ≈1.5 ms with recall ≈0.998. **It cannot
+  be concluded from here that IVFFlat is better:** this data is 719 very marked "clouds", which favour IVFFlat, and on
+  the real corpus IVFFlat with `probes=1` performed much worse. What the comparison does show is that HNSW's recall was
+  ≥ 0.95 on the three datasets with any `ef_search`, while IVFFlat's depends strongly on the data and on `probes`.
+- **Variance between builds:** rebuilding the HNSW graph (without parallelism) gave recall 0.993 and 0.975 with
+  `ef_search=40`. Differences between nearby `ef_search` values are smaller than that variance and must not be
+  interpreted. The benchmark's intervals cover the variability between queries, not between builds.
+- **Operational effect:** HNSW returns at most `ef_search` rows. With `ef_search=10`, the golden set's nDCG@10 with
+  windows drops from 0.644 to 0.571, because the ranking does not reach 10 distinct articles; with 40 it matches exact
+  search. IVFFlat with `probes=1` loses ≈0.2 of nDCG.
+- **Decision for this project:** with ~1,000 vectors **exact** search is kept (and the CI's regression gate uses exact
+  search). If the corpus grew, the recommendation would be HNSW with `ef_search >= 40`.
+- **Infrastructure:** in Docker containers (`/dev/shm` of 64 MB by default) a parallel build with a high
+  `maintenance_work_mem` fails with "could not resize shared memory segment"; the benchmark builds without
+  parallelism. GitHub's CI has the same limit.
+- **Latency:** measured end to end from Python (it includes serializing the 384-number vector), with `shared_buffers`
+  of 128 MB and the container sharing CPU with other processes on the machine.
+
+### Multi-tenant isolation (RLS)
+
+Model: the legislative corpus is public and belongs to nobody; each tenant can also have **private synthetic
+documents** (`tenant_id`). `NULL` in `tenant_id` is the public corpus. All test data is synthetic.
+
+- **Policies** on `chunks` (one per operation): `SELECT` sees the public corpus and one's own rows; `INSERT` only with
+  one's own `tenant_id`; `UPDATE` and `DELETE` only on one's own rows (a tenant **cannot modify or delete the public
+  corpus**, nor reassign its rows to another tenant). If no tenant is set, **zero rows**, not even the public ones
+  (fail-closed).
+- **Role `app_user`** without privileges (not a superuser, no `BYPASSRLS`, not the owner) and
+  `FORCE ROW LEVEL SECURITY`.
+- **Use:** `db.tenant_transaction(conn, tenant_id)` at the start of each request runs `SET LOCAL ROLE app_user` and
+  `set_config('app.tenant_id', …, true)`. Both last only until the end of the transaction, so they do not survive on a
+  reused pooled connection; a session-level setting (`is_local = false`) would leak the previous tenant, and a control
+  test demonstrates it. `SET LOCAL x = %s` does not accept bound parameters in psycopg 3; that is why `set_config`.
+- **Searches:** `FtsIndex`, `DenseIndex` and `HybridIndex` accept `tenant=`. Without a tenant (the golden-set
+  evaluation) they only see the public corpus. `load-db` deletes only the public rows when reloading.
+- **Tests** (`tests/test_rls.py`, against a real Postgres): each tenant sees the public data and its own and never
+  anyone else's; with no tenant it sees nothing; writes are confined; the tenant and the role do not survive the
+  transaction; FTS, dense and hybrid searches do not leak. Checked with mutations (session instead of transaction, a
+  policy that does not require a tenant, `UPDATE` on public rows, `INSERT` without a check, RLS disabled, etc.): all
+  are detected.
+- **HNSW + RLS:** the approximate index hands over its candidates before the RLS filter. With 200 rows of tenant A
+  right next to the query and 3,000 public rows far away, tenant B with `ef_search=40` (the default) receives **0 rows**
+  (never rows of A, but not the 10 requested either). With `ef_search=200` or with
+  `hnsw.iterative_scan = relaxed_order` it receives the 10, all public, just like with exact search. The case is
+  designed to show the problem; the real magnitude depends on the data. It is one more reason to keep exact search with
+  this corpus.
+
+Limitations of this implementation, to keep in mind:
+
+- **Main weakness:** if the application connects as the owner and calls `tenant_transaction`, **forgetting to call it**
+  leaves that request with the owner's privileges, which sees everything. In production the API should connect directly
+  with a `LOGIN` role that inherits from `app_user`, so that forgetting to set the tenant gives zero rows. That
+  connection setup is not implemented yet nor integrated with FastAPI.
+- `FORCE ROW LEVEL SECURITY` is only verified through the catalog: the test connection is a superuser and superusers
+  always bypass RLS, so its effect cannot be checked behaviourally.
+- `app.tenant_id` is a configuration parameter that the session itself can modify: an SQL injection could change it.
+  The defence is to always use parameterized queries; it is not covered here.
+- If the owner were not a superuser, `FORCE` would apply the policies to it and loading would need `BYPASSRLS`.
+
+### Regression gate
+
+`python cli.py gate` evaluates the main system (**FTS + dense hybrid with RRF k=60, exact search**) on the frozen golden
+set and fails if **Recall@10 or nDCG@10**, with article or window chunking, fall below the thresholds in
+`data/gate/thresholds.json`. The CI runs it together with the RLS tests.
+
+- **What it is and what it is not:** a gate **does not compare systems statistically** (the golden set's sampling CI is
+  ±0.1): it detects that the pipeline has changed its behaviour on the same frozen data. That is why the margin depends
+  on implementation and platform noise, not on sampling noise.
+- **Rule** (fixed before computing, `scripts/gate.py`): noise = the larger of the between-environment difference
+  observed for FTS (0.008) and the largest change of the hybrid when query vectors are perturbed; margin =
+  max(0.01, 3 × noise) rounded up to multiples of 0.005; threshold = current value − margin, rounded down. The
+  thresholds are recomputed with `python cli.py calibrate-gate [--write-thresholds]`, and
+  `python cli.py gate-margin X` sets a margin decided by hand. Everything is stored in `results/gate_calibration.json`.
+- **Noise, measured:** perturbing the query vectors with a relative noise of 1e-6 and 1e-5 (100 times the `float32`
+  epsilon) did not move any metric across 20 seeds; metrics start to move at ≈1e-3 (nDCG by up to 0.003) and at 1e-2
+  Recall@10 changes by up to 0.025. The difference between Homebrew's PostgreSQL and the container, measured once for
+  FTS, was up to 0.008 (in Recall@3, which is not a gate metric) and ≤0.001 in Recall@10 and nDCG@10. **The gate
+  passed on GitHub Actions** with this margin. The run's log was not inspected, so it is not documented which
+  architecture the runner used nor which values it measured: if it ever fails because of the platform, the log itself
+  will show them.
+- **Sensitivity** (in `results/gate_calibration.json`): the gate detects queries misaligned with their vectors, changing
+  the FTS configuration to `'simple'`, degrading the hybrid to dense-only or FTS-only, and changing RRF to k=1 with
+  windows. **With a margin of 0.025 it would not detect** queries losing the model's instruction with windows (−0.014
+  nDCG) nor RRF with k=1000 with articles.
+- **Limits:** it protects the current corpus and golden set; it does not detect improvements nor regressions smaller
+  than the margin, and it does not replace `evaluate` and `compare` for choosing between systems.
+
+### Continuous integration (GitHub Actions)
+
+`.github/workflows/ci.yml` runs on every `push` to `main` and on every `pull request`, with two independent jobs:
+
+- **Secret scan:** gitleaks 8.30.1 (the same version as pre-commit) over the **whole history**. The pre-commit hook only
+  looks at what is staged (`--staged`), so in the CI it would have scanned nothing; the step also checks that at least
+  one commit was scanned, so it cannot give an empty green.
+- **Tests, RLS and regression gate:** a `pgvector/pgvector:pg17` service (with `--shm-size`), installation **without
+  torch** (the pre-computed, versioned embeddings are used), Ruff, `python cli.py report --check` (the READMEs cannot
+  publish stale figures), loading the corpus into Postgres, the RLS tests on their own (they fail on any leak), the rest
+  of the tests (including the endpoint's parity with `evaluate` for FTS) and `python cli.py gate`. Any failure in these
+  steps fails the job. **In the CI, a service that should be available does not skip the tests, it makes them fail**
+  (`CI=true`); otherwise an unreachable database would leave the CI green without having checked anything.
+- The Postgres service credentials in the workflow are throwaway values of an ephemeral runner container, not project
+  secrets.
+- **Rehearsal:** the steps were reproduced locally on a clean copy (no `.env`, no `data/raw/`, no virtual environment),
+  with `torch` non-existent and a new, empty database: Ruff, 15 RLS tests, 1,678 tests (4 skipped because the corpus and
+  the model were not available) and the gate with the same values as locally.
+- **Verified on GitHub Actions:** the workflow ran green on the published repository (secret scan, Ruff, README up to
+  date, corpus loading, tests with RLS and regression gate). That checks the versions of `actions/checkout@v4` and
+  `actions/setup-python@v5` and the use of `docker run --user` with gitleaks, which used to be from memory. **Limit:**
+  only the overall result was looked at, not the step-by-step log; the runner's architecture and the metric values it
+  measured were not checked.
+- **Outside the CI:** `download-corpus` (checking the hash against EUR-Lex) does not run on every commit, so as not to
+  depend on EUR-Lex's availability.
+
+## Development
+
+Requires Python 3.12.
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
-pre-commit install   # imprescindible: activa el detector de secretos
-cp .env.example .env # y rellena tus valores; .env nunca se versiona
+pre-commit install   # essential: it activates the secret detector
+cp .env.example .env # and fill in your values; .env is never versioned
 ```
 
-El hook de pre-commit ejecuta [gitleaks](https://github.com/gitleaks/gitleaks), detecta claves
-privadas y bloquea cualquier fichero `.env` (salvo `.env.example`).
+The pre-commit hook runs [gitleaks](https://github.com/gitleaks/gitleaks), detects private keys and blocks any `.env`
+file (except `.env.example`). Tests run with `pytest` and style is checked with `ruff check .`.
 
-Los tests se ejecutan con `pytest` y el estilo se comprueba con `ruff check .`.
-
-## Comandos
-
-Todas las etapas del pipeline se lanzan desde un único punto de entrada, `cli.py`, desde la raíz
-del repositorio y con el entorno virtual activo. `python cli.py --help` lista los comandos
-disponibles. Se irán añadiendo conforme se implementen las etapas.
-
-| Comando | Qué hace |
-|---------|----------|
-| `python cli.py download-corpus` | Descarga el corpus y **verifica** que el SHA-256 de cada acto coincide con `data/corpus.sha256` y que el número de artículos es el esperado (71, 64 y 113). Falla si algo no coincide. |
-| `python cli.py download-corpus --freeze` | Igual, pero **escribe** `data/corpus.sha256`. Solo se usa la primera vez, para congelar el corpus. |
-| `python cli.py chunk` | Genera los chunks a partir del corpus congelado (comprueba antes los hashes): uno por artículo y ventanas de 200 palabras con solape de 40. Escribe `data/chunks/*.jsonl`. |
-| `python cli.py list-articles [--act dora\|aifmd\|aiact] [--range 17-23]` | Lista artículos (acto, número, título y nº de palabras). |
-| `python cli.py show-article <acto> <N>` | Muestra el texto completo de un artículo, tal y como se indexa. |
-| `python cli.py validate-golden` | Valida el golden set: formato, que los artículos existen, grados 1–3, consultas sin juicios; muestra avisos de revisión y el reparto por tipo. Falla si hay errores o si el golden set congelado se modificó. |
-| `python cli.py freeze-golden` | Congela el golden set (SHA-256 en `data/golden/golden.sha256`). Solo con el conjunto completo. |
-| `python cli.py compare <A> <B> [--metric ndcg@10] [--bonferroni N]` | Diferencia pareada A − B entre dos resultados de `results/` (p. ej. `bm25_window fts_window`), con intervalo bootstrap global y por tipo de consulta (y, con `--bonferroni N`, el global corregido para N comparaciones). Se niega si los resultados vienen de golden sets distintos. |
-| `python cli.py embed [--verify]` | Calcula los embeddings de chunks y consultas con el modelo fijado y los guarda en `data/embeddings/`. Con `--verify` no recalcula: comprueba que una muestra se reproduce con lo guardado. Requiere `requirements-embeddings.txt`. |
-| `python cli.py bench-index [--size N] [--skip-synthetic]` | Compara HNSW e IVFFlat (recall y latencia) en un esquema temporal que se borra al terminar; guarda `results/index_benchmark.json`. |
-| `python cli.py gate` | Regression gate: falla si el híbrido (búsqueda exacta) cae bajo los umbrales de `data/gate/thresholds.json`. |
-| `python cli.py calibrate-gate [--write-thresholds]` | Recalcula ruido, sensibilidad a regresiones y umbrales (local; requiere torch). |
-| `python cli.py gate-margin X` | Fija a mano el margen del gate (≥ 0,01) y recalcula los umbrales desde la calibración guardada. |
-| `python cli.py report [--check]` | Genera la sección «Resultados» de este README (entre las marcas `results:start` y `results:end`) a partir de `results/`, `data/gate/` y `results/index_benchmark.json`. Con `--check` no escribe: falla si el README está desactualizado. |
-| `python cli.py init-db` | Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el `.env`. |
-| `python cli.py load-db` | Carga `data/chunks/*.jsonl` en Postgres. Idempotente: reemplaza lo anterior y registra el hash de los ficheros cargados. |
-| `python cli.py evaluate [--system bm25] [--chunking article\|window\|both]` | Evalúa un sistema sobre el golden set **congelado** (se niega si no está congelado o fue modificado) y guarda `results/<sistema>_<chunking>.json` con las métricas por consulta, por tipo y con intervalos bootstrap. |
-
-### Postgres (desarrollo local)
+### Local Postgres
 
 ```bash
-cp .env.example .env     # y define POSTGRES_USER, POSTGRES_PASSWORD y POSTGRES_DB (valores propios)
-docker compose up -d     # imagen pgvector/pgvector:pg17, publicada solo en 127.0.0.1:5433
+cp .env.example .env     # and define POSTGRES_USER, POSTGRES_PASSWORD and POSTGRES_DB (your own values)
+docker compose up -d     # pgvector/pgvector:pg17 image, published only on 127.0.0.1:5433
 python cli.py init-db
 python cli.py load-db
 python cli.py evaluate --system fts
@@ -247,254 +517,53 @@ python cli.py evaluate --system dense
 python cli.py evaluate --system hybrid
 ```
 
-- El puerto es el **5433** (configurable con `POSTGRES_PORT`) para no chocar con un Postgres local en el 5432.
-  Está publicado solo en la interfaz loopback: únicamente los programas de la propia máquina pueden conectarse.
-- `docker-compose.yml` falla si faltan las credenciales; no hay secretos en el repositorio.
-- **FTS** (`scripts/fts.py`): configuración `'english'`; consulta = OR de los términos (por defecto Postgres
-  exige todos); ranking `ts_rank_cd` con valores por defecto; desempate por `chunk_id`. Decisiones fijadas antes
-  de medir.
-- **Denso** (`scripts/dense.py`): columna `embedding vector(384)` en la misma tabla `chunks`; distancia coseno (`<=>`)
-  con **búsqueda exacta, sin índice aproximado**; desempate por `chunk_id`. `load-db` carga también los vectores de
-  `data/embeddings/` (se niega si están desfasados) y `evaluate --system dense` usa los vectores precalculados de las
-  consultas del golden set, así que no necesita torch. La extensión `vector` se instala siempre en el esquema `public`.
-- **Híbrido** (`scripts/rrf.py` y `scripts/hybrid.py`): RRF con k = 60 sobre los rankings de FTS y denso, cada uno con
-  sus 200 mejores chunks. La fusión es **a nivel de chunk** (por `chunk_id`) y después se convierte a artículos
-  distintos, igual que en los demás sistemas. RRF es una función pura con tests (ejemplo calculado a mano).
-- **Híbrido BM25 + denso** (`--system hybrid-bm25`, **exploratorio**): misma fusión RRF con BM25 como entrada léxica.
-  Es una idea posterior a ver los resultados del híbrido con FTS, así que sus comparaciones se declararon como
-  exploratorias y se corrigen con Bonferroni sobre 21 (las 15 principales más estas 6). El resultado se informa
-  tal cual, no cambia el sistema principal.
-- `evaluate --system fts|dense|hybrid|hybrid-bm25` se niega a ejecutarse si los chunks (y, en denso, los embeddings) cargados en la base de datos no coinciden con
-  `data/chunks/` (hay que repetir `load-db`).
-- Los tests de base de datos usan un esquema temporal aislado y se saltan solos si no hay Postgres.
+- The port is **5433** (configurable with `POSTGRES_PORT`) so as not to clash with a local Postgres on 5432. It is
+  published only on the loopback interface: only programs on the machine itself can connect.
+- `docker-compose.yml` fails if the credentials are missing; there are no secrets in the repository.
 
-### Datos
+### Commands
 
-- `data/raw/`: HTML descargado de EUR-Lex. **No se versiona**: se vuelve a descargar y se valida
-  con el hash.
-- `data/corpus.sha256`: hashes congelados del corpus. Sí se versiona; es lo que garantiza que
-  todos trabajan con el mismo texto.
-- `data/chunks/`: chunks en JSONL (`articles.jsonl` y `windows_w200_o40.jsonl`). Sí se versionan.
-  Un test comprueba que regenerarlos desde el corpus congelado da exactamente los mismos ficheros.
+All the pipeline's stages are launched from a single entry point, `cli.py`, from the repository root and with the
+virtual environment active. `python cli.py --help` lists the available commands.
 
-### Golden set
+| Command | What it does |
+|---------|--------------|
+| `python cli.py download-corpus` | Downloads the corpus and **verifies** that each act's SHA-256 matches `data/corpus.sha256` and that the article count is the expected one (71, 64 and 113). Fails if anything differs. |
+| `python cli.py download-corpus --freeze` | The same, but **writes** `data/corpus.sha256`. Only used the first time, to freeze the corpus. |
+| `python cli.py chunk` | Generates the chunks from the frozen corpus (after checking the hashes): one per article and 200-word windows with an overlap of 40. Writes `data/chunks/*.jsonl`. |
+| `python cli.py list-articles [--act dora\|aifmd\|aiact] [--range 17-23]` | Lists articles (act, number, title and word count). |
+| `python cli.py show-article <act> <N>` | Shows the full text of an article, as it is indexed. |
+| `python cli.py validate-golden` | Validates the golden set: format, that the articles exist, grades 1–3, queries without judgments; shows review warnings and the split by type. Fails on errors or if the frozen golden set was modified. |
+| `python cli.py freeze-golden` | Freezes the golden set (SHA-256 in `data/golden/golden.sha256`). Only with the complete set. |
+| `python cli.py compare <A> <B> [--metric ndcg@10] [--bonferroni N]` | Paired difference A − B between two results in `results/` (e.g. `bm25_window fts_window`), with a bootstrap interval overall and per query type (and, with `--bonferroni N`, the overall one corrected for N comparisons). Refuses if the results come from different golden sets. |
+| `python cli.py embed [--verify]` | Computes the embeddings of chunks and queries with the pinned model and stores them in `data/embeddings/`. With `--verify` it does not recompute: it checks that a sample reproduces what is stored. Needs `requirements-embeddings.txt`. |
+| `python cli.py bench-index [--size N] [--skip-synthetic]` | Compares HNSW and IVFFlat (recall and latency) in a temporary schema that is dropped afterwards; writes `results/index_benchmark.json`. |
+| `python cli.py gate` | Regression gate: fails if the hybrid (exact search) falls below the thresholds in `data/gate/thresholds.json`. |
+| `python cli.py calibrate-gate [--write-thresholds]` | Recomputes noise, sensitivity to regressions and thresholds (local; needs torch). |
+| `python cli.py gate-margin X` | Sets the gate margin by hand (≥ 0.01) and recomputes the thresholds from the stored calibration. |
+| `python cli.py report [--check]` | Writes the generated blocks of both READMEs (between the `tldr:start`/`tldr:end` and `results:start`/`results:end` markers) from `results/`, `data/gate/` and `results/index_benchmark.json`. With `--check` it does not write: it fails if a README is stale. |
+| `python cli.py init-db` | Creates (or updates) the schema in Postgres. Needs `docker compose up -d` and the `.env`. |
+| `python cli.py load-db` | Loads `data/chunks/*.jsonl` into Postgres. Idempotent: replaces what was there and records the hash of the loaded files. |
+| `python cli.py evaluate [--system bm25] [--chunking article\|window\|both]` | Evaluates a system on the **frozen** golden set (refuses if it is not frozen or was modified) and writes `results/<system>_<chunking>.json` with per-query and per-type metrics and bootstrap intervals. |
 
-- `data/golden/queries.jsonl`: consultas (`query_id`, `type`, `theme`, `query`). Tipos: `paraphrase`,
-  `exact_term` y `multi_article`. Las consultas están en inglés, como el corpus.
-- `data/golden/qrels.jsonl`: juicios de relevancia, **una línea por par consulta-artículo**
-  (`query_id`, `celex`, `article`, `grade`). Los escribe una persona; ningún LLM etiqueta.
-- **Escala:** 3 = el artículo responde directamente; 2 = aporta una parte sustancial; 1 = relacionado,
-  pero tangencial; lo no escrito = no relevante. El grado mide cuánto cubre ese artículo por sí solo,
-  no el orden en que deba aparecer; puede haber varios artículos con el mismo grado.
-- **Criterio de inclusión:** un artículo recibe juicio si **trata** el concepto de la consulta, no por
-  mencionarlo de pasada. Por eso hay artículos que contienen el término de una consulta `exact_term`
-  y no tienen juicio; `validate-golden` los lista como información para revisión.
-- **Método:** consultas escritas «desde el artículo», juzgadas leyendo el texto, sin ayuda de ningún
-  buscador, y congeladas antes de ejecutar ninguna recuperación.
-- **Limitaciones:** conjunto pequeño (30–50 consultas) y un solo anotador; el método «desde el artículo»
-  favorece ligeramente el acierto del artículo de origen. Las diferencias pequeñas entre sistemas no
-  serán estadísticamente sólidas.
+## Licenses and attribution
 
-### Embeddings
+- **Code and golden set:** **MIT** licence (`LICENSE`). The golden set (`data/golden/`) is the author's own work (queries
+  drafted with the help of an AI assistant and relevance judgments written by a person) and the same licence covers it.
+- **Legislative texts and derived data** (`data/chunks/`, `data/embeddings/`, `data/corpus.sha256` and the snippets the
+  API returns): **not** covered by the MIT licence; they follow EUR-Lex's reuse conditions.
 
-- **Modelo:** `BAAI/bge-small-en-v1.5` (MIT, 384 dimensiones, ventana de 512 tokens) fijado por hash de commit
-  (`5c38ec7c…`). Elegido por criterios decididos antes de medir (ventana, licencia, tamaño, riesgo de
-  configuración); no se comparó con otros sobre el golden set. `all-MiniLM-L6-v2` se descartó por su ventana de 256.
-- **Consultas** con la instrucción de recuperación del modelo; **chunks** sin prefijo. Vectores normalizados (L2).
-- **Precalculados y versionados** en `data/embeddings/` con un `manifest.json` (modelo, revisión, versiones de
-  librerías y hashes de cada fichero y de su fuente). `load_embeddings` se niega a devolver vectores desfasados.
-  La API y la CI no necesitan torch; solo `python cli.py embed` necesita `pip install -r requirements-embeddings.txt`.
-- **Truncamiento medido** con el tokenizador real: **108 de 248 artículos (44 %) superan los 512 tokens** y se truncan
-  (de media pierden el 36 % de sus tokens); **ninguna de las 719 ventanas** se trunca (máximo 416 tokens).
-  Es una propiedad de «un chunk por artículo» con un modelo de contexto fijo.
-- Los vectores pueden diferir en el último decimal entre plataformas; por eso `--verify` exige coseno >= 0,9999
-  y no igualdad bit a bit.
+**Attribution.** The legislative texts come from [EUR-Lex](https://eur-lex.europa.eu/) (© European Union), downloaded
+from the Publications Office's Cellar API, and are reused under its reuse policy (Decision 2011/833/EU), citing the
+source and without altering their meaning.
 
-- **Sin pooling (decisión explícita):** los juicios son los independientes de la fase 1; no se ejecutó ninguna
-  ronda de pooling. Un artículo relevante que el golden set no juzgó cuenta como fallo del sistema que lo
-  recupera, así que **el recall absoluto puede estar subestimado**, y no necesariamente por igual en todos los
-  sistemas: pueden salir perjudicados los que recuperan artículos relevantes distintos de los juzgados. Medido:
-  el top-10 de los 10 sistemas evaluados (5 × 2 chunkings) deja **913 pares consulta-artículo sin juicio**, que
-  cubren 217 de los 248 artículos del corpus; no se estimó qué fracción de ellos es relevante. Juzgarlos
-  todos habría supuesto unas 723.000 palabras de lectura, y se descartó por coste. Las diferencias entre
-  sistemas deben leerse con esta cautela.
+**Modifications.** The text of each article is extracted from the published XHTML, whitespace is normalized, the rows of
+lists are joined into one line, "Article N. Title" is prepended to every chunk and the articles are split into chunks.
+Only the articles are indexed: recitals and annexes are left out.
 
-### Índices aproximados: HNSW frente a IVFFlat
-
-`python cli.py bench-index` mide recall frente a la **búsqueda exacta de Postgres** (la referencia) y latencia, con
-parámetros fijados antes de medir: HNSW `m=16`, `ef_construction=64` y barrido de `ef_search`; IVFFlat con
-`lists = filas/1000` (guía de pgvector) y barrido de `probes`. Las cifras completas están en
-`results/index_benchmark.json`. Dos partes, con límites distintos:
-
-- **Corpus real (719 ventanas y 248 artículos):** a esta escala **la búsqueda exacta es tan rápida como
-  cualquier índice** (≈0,7–0,8 ms en todos los casos, donde domina el coste fijo de la consulta), así que los
-  índices no aportan nada en latencia. Sí muestran recall: HNSW con `ef_search=40` ≥ 0,995 e IVFFlat con
-  `probes=1` entre 0,56 y 0,58, con consultas que devuelven menos de 10 resultados.
-- **Escala sintética (100.000 vectores):** datos **sintéticos** (perturbaciones de vectores reales con coseno
-  0,93 respecto a su origen, calibrado con el coseno a los 10 vecinos más cercanos de las ventanas reales). La
-  búsqueda exacta tarda ≈33 ms; HNSW con `ef_search=40` ≈1,4 ms con recall ≈0,99; IVFFlat con `probes=1`
-  ≈1,5 ms con recall ≈0,998. **No se puede concluir de aquí que IVFFlat sea mejor:** estos datos son 719
-  «nubes» muy marcadas, que favorecen a IVFFlat, y en el corpus real IVFFlat con `probes=1` rindió mucho peor.
-  Lo que sí muestra la comparación es que el recall de HNSW fue ≥ 0,95 en los tres conjuntos con cualquier
-  `ef_search`, mientras que el de IVFFlat depende mucho de los datos y de `probes`.
-- **Varianza entre construcciones:** reconstruir el grafo HNSW (sin paralelismo) dio recall 0,993 y 0,975 con
-  `ef_search=40`. Las diferencias entre valores de `ef_search` cercanos son menores que esa varianza y no deben
-  interpretarse. Los intervalos del benchmark cubren la variabilidad entre consultas, no entre construcciones.
-- **Efecto operativo:** HNSW devuelve como mucho `ef_search` filas. Con `ef_search=10`, el nDCG@10 del
-  golden set con ventanas cae de 0,644 a 0,571, porque el ranking no llega a 10 artículos distintos; con 40
-  coincide con la búsqueda exacta. IVFFlat con `probes=1` pierde ≈0,2 de nDCG.
-- **Decisión para este proyecto:** con ~1.000 vectores se mantiene la búsqueda **exacta** (y el regression gate
-  de la CI usará búsqueda exacta). Si el corpus creciera, la recomendación sería HNSW con `ef_search >= 40`.
-- **Infraestructura:** en contenedores Docker (`/dev/shm` de 64 MB por defecto) una construcción paralela con
-  `maintenance_work_mem` alto falla con «could not resize shared memory segment»; el benchmark construye sin
-  paralelismo. La CI de GitHub tendrá el mismo límite.
-- **Latencia:** medida extremo a extremo desde Python (incluye serializar el vector de 384 números), con
-  `shared_buffers` de 128 MB y el contenedor compartiendo CPU con otros procesos de la máquina.
-
-### Aislamiento multi-inquilino (RLS)
-
-Modelo: el corpus legislativo es público y no pertenece a nadie; cada inquilino puede tener además **documentos
-privados sintéticos** (`tenant_id`). `NULL` en `tenant_id` es el corpus público. Todos los datos de prueba son
-sintéticos.
-
-- **Políticas** en `chunks` (una por operación): `SELECT` ve el corpus público y lo propio; `INSERT` solo con el
-  `tenant_id` propio; `UPDATE` y `DELETE` solo sobre filas propias (un inquilino **no puede modificar ni borrar el
-  corpus público**, ni reasignar sus filas a otro inquilino). Si no hay inquilino fijado, **cero filas**, ni
-  siquiera las públicas (falla cerrada).
-- **Rol `app_user`** sin privilegios (no superusuario, sin `BYPASSRLS`, no propietario) y `FORCE ROW LEVEL SECURITY`.
-- **Uso:** `db.tenant_transaction(conn, tenant_id)` al principio de cada petición ejecuta `SET LOCAL ROLE app_user`
-  y `set_config('app.tenant_id', …, true)`. Ambos valen solo hasta el final de la transacción, así que no sobreviven en
-  una conexión reutilizada de un pool; un ajuste de sesión (`is_local = false`) sí filtraría el inquilino anterior, y
-  hay un test de control que lo demuestra. `SET LOCAL x = %s` no admite parámetros enlazados en psycopg 3; por eso
-  `set_config`.
-- **Búsquedas:** `FtsIndex`, `DenseIndex` y `HybridIndex` aceptan `tenant=`. Sin inquilino (la evaluación del golden
-  set) solo ven el corpus público. `load-db` borra únicamente las filas públicas al recargar.
-- **Tests** (`tests/test_rls.py`, contra Postgres real): cada inquilino ve lo público y lo propio y nunca lo ajeno;
-  sin inquilino no ve nada; escrituras confinadas; el inquilino y el rol no sobreviven a la transacción; búsquedas
-  FTS, densa e híbrida sin fugas. Se comprobó con mutaciones (sesión en lugar de transacción, política sin exigir
-  inquilino, `UPDATE` sobre filas públicas, `INSERT` sin comprobación, RLS desactivado, etc.): todas se detectan.
-- **HNSW + RLS:** el índice aproximado entrega sus candidatos antes del filtro de RLS. Con 200 filas de A pegadas a
-  la consulta y 3.000 públicas lejos, el inquilino B con `ef_search=40` (el valor por defecto) recibe **0 filas**
-  (nunca filas de A, pero tampoco las 10 pedidas). Con `ef_search=200` o con `hnsw.iterative_scan = relaxed_order`
-  recibe las 10, todas públicas, igual que con búsqueda exacta. El caso está diseñado para mostrar el problema; la
-  magnitud real depende de los datos. Es otra razón para mantener la búsqueda exacta con este corpus.
-
-Limitaciones de esta implementación, a tener en cuenta:
-
-- **Debilidad principal:** si la aplicación se conecta como el propietario y llama a `tenant_transaction`, **olvidar
-  llamarla** deja esa petición con los privilegios del propietario, que ve todo. En producción la API debería
-  conectarse directamente con un rol `LOGIN` que herede de `app_user`, de modo que olvidar fijar el inquilino dé cero
-  filas. Esa configuración de conexión aún no está implementada ni integrada con FastAPI.
-- `FORCE ROW LEVEL SECURITY` solo se verifica por catálogo: la conexión de prueba es superusuaria y los
-  superusuarios siempre se saltan RLS, así que su efecto no se puede comprobar por comportamiento.
-- `app.tenant_id` es un parámetro de configuración modificable desde la propia sesión: una inyección SQL podría
-  cambiarlo. La defensa es usar siempre consultas parametrizadas; no se cubre aquí.
-- Si el propietario no fuera superusuario, `FORCE` le aplicaría las políticas y la carga necesitaría `BYPASSRLS`.
-
-### Regression gate
-
-`python cli.py gate` evalúa el sistema principal (**híbrido FTS + denso con RRF k=60, búsqueda exacta**) sobre el
-golden set congelado y falla si **Recall@10 o nDCG@10**, con chunking por artículo o por ventanas, caen bajo los
-umbrales de `data/gate/thresholds.json`. La CI lo ejecuta, junto con los tests de RLS.
-
-- **Qué es y qué no es:** un gate **no compara sistemas con estadística** (el IC de muestreo del golden set es de
-  ±0,1): detecta que la tubería haya cambiado de comportamiento sobre los mismos datos congelados. Por eso el margen
-  depende del ruido de implementación y de plataforma, no del de muestreo.
-- **Regla** (fijada antes de calcular, `scripts/gate.py`): ruido = el mayor entre la diferencia entre entornos
-  observada para FTS (0,008) y el cambio máximo del híbrido al perturbar los vectores de consulta; margen =
-  max(0,01, 3 × ruido) redondeado hacia arriba a múltiplos de 0,005; umbral = valor actual − margen, redondeado hacia
-  abajo. Los umbrales se recalculan con `python cli.py calibrate-gate [--write-thresholds]`, y
-  `python cli.py gate-margin X` fija un margen decidido a mano. Todo queda en `results/gate_calibration.json`.
-- **Ruido medido:** perturbar los vectores de consulta con ruido relativo de 1e-6 y 1e-5 (100 veces el épsilon de
-  `float32`) no movió ninguna métrica en 20 semillas; las métricas empiezan a moverse con ≈1e-3 (nDCG hasta 0,003) y
-  con 1e-2 el Recall@10 llega a cambiar 0,025. La diferencia entre PostgreSQL de Homebrew y el contenedor, medida una
-  sola vez para FTS, fue de hasta 0,008 (en Recall@3, que no es una métrica del gate) y ≤0,001 en Recall@10 y nDCG@10.
-  **En GitHub Actions el gate pasó** con este margen. No se inspeccionó el registro de la ejecución, así que no se
-  documenta qué arquitectura usó el runner ni qué valores midió allí: si algún día falla por plataforma, el propio
-  registro los mostrará.
-- **Sensibilidad** (en `results/gate_calibration.json`): el gate detecta consultas desalineadas con sus vectores,
-  cambiar la configuración de FTS a `'simple'`, degradar el híbrido a solo denso o solo FTS, y cambiar RRF a k=1 con
-  ventanas. **Con el margen de 0,025 no detecta** que las consultas pierdan la instrucción del modelo con ventanas
-  (−0,014 de nDCG) ni RRF con k=1000 con artículos.
-- **Límites:** protege el corpus y el golden set actuales; no detecta mejoras ni regresiones menores que el margen, y
-  no sustituye a `evaluate` y `compare` para decidir entre sistemas.
-
-### Integración continua (GitHub Actions)
-
-`.github/workflows/ci.yml` se ejecuta en cada `push` a `main` y en cada `pull request`, con dos trabajos independientes:
-
-- **Escaneo de secretos:** gitleaks 8.30.1 (la misma versión que pre-commit) sobre **todo el historial**. El hook de
-  pre-commit solo mira lo preparado en el índice (`--staged`), así que en la CI no habría escaneado nada; el paso
-  comprueba además que se escaneó al menos un commit, para que no pueda dar un verde vacío.
-- **Tests, RLS y regression gate:** servicio `pgvector/pgvector:pg17` (con `--shm-size`), instalación **sin torch**
-  (se usan los embeddings precalculados y versionados), Ruff, `python cli.py report --check` (el README no puede
-  publicar cifras desfasadas), carga del corpus en Postgres, los tests de RLS por separado (fallan ante cualquier
-  fuga), el resto de tests (incluida la paridad del endpoint con `evaluate` en FTS) y `python cli.py gate`.
-  Cualquier fallo de estos pasos falla el trabajo. **En la CI, un servicio que debería estar disponible no salta
-  los tests, los hace fallar** (`CI=true`); si no, una base de datos inaccesible dejaría la CI en verde sin haber
-  comprobado nada.
-- Las credenciales del servicio de Postgres del workflow son valores desechables de un contenedor efímero del
-  runner, no secretos del proyecto.
-- **Ensayo previo:** los pasos se reprodujeron en local sobre una copia limpia (sin `.env`, sin `data/raw/`, sin el
-  entorno virtual), con `torch` inexistente y una base de datos nueva y vacía: Ruff, 15 tests de RLS, 1.678 tests
-  (4 saltados por no haber corpus descargado ni modelo) y el gate con los mismos valores que en local.
-- **Verificado en GitHub Actions:** el workflow se ejecutó en verde sobre el repositorio publicado (escaneo de
-  secretos, Ruff, README al día, carga del corpus, tests con RLS y regression gate). Con ello quedan comprobadas las
-  versiones de `actions/checkout@v4` y `actions/setup-python@v5` y el uso de `docker run --user` con gitleaks, que
-  antes eran de memoria. **Límite:** solo se miró el resultado global, no el registro paso a paso; no se comprobó la
-  arquitectura del runner ni los valores de las métricas medidos allí.
-- **Fuera de la CI:** `download-corpus` (comprobar el hash contra EUR-Lex) no se ejecuta en cada commit, para no
-  depender de la disponibilidad de EUR-Lex.
-
-### Chunking
-
-- **Alcance:** solo artículos (248: AIFMD 71, DORA 64, AI Act 113). Considerandos y anexos quedan fuera.
-- **Por artículo:** un chunk por artículo, con cabecera `Article N. Título`.
-- **Por ventanas:** 200 palabras del cuerpo con solape de 40, sin cruzar el límite de un artículo; si la
-  cola nueva tiene menos de 50 palabras se fusiona con la ventana anterior. Cada ventana empieza por la
-  cabecera `Article N. Título` (sus palabras no cuentan para las 200).
-- **Fidelidad:** el texto es literal; solo se normalizan espacios. Las filas de las listas `(a) ...` se
-  unen en una línea.
-- **Evaluación:** los juicios de relevancia se darán por artículo (`celex` + `article`), de modo que
-  ambas estrategias se miden con los mismos juicios.
-
-## Evaluación
-
-Las métricas viven en `scripts/metrics.py` como funciones puras, con tests hechos a mano
-(`tests/test_metrics.py`). Decisiones fijadas **antes** de ejecutar ninguna recuperación:
-
-- **Unidad:** el artículo. Los rankings de chunks (ventanas) se convierten a artículos distintos,
-  conservando la mejor posición de cada uno.
-- **Relevante** (Recall y MRR): grado >= 2. El grado 1 solo cuenta en nDCG.
-- **Métricas:** Recall@1, @3, @5 y @10, MRR@10 y nDCG@10 con ganancia lineal (3, 2, 1). La ganancia
-  exponencial (7, 3, 1) queda como análisis de sensibilidad.
-- **Incertidumbre:** bootstrap pareado sobre consultas (10.000 remuestras, semilla fija, intervalo
-  percentil del 95 %), también por tipo de consulta. Con 15, 15 y 10 consultas por tipo, los intervalos
-  serán anchos.
-
-Ejemplo hecho a mano (juicios A=3, B=2, C=1; ranking X, B, A, Y, C con X e Y irrelevantes):
-Recall@1 = 0, Recall@2 = 0,5, Recall@3 = 1, MRR = 0,5 y nDCG@5 = 0,6612
-(DCG = 2/log2(3) + 3/log2(4) + 1/log2(6) = 3,1487; ideal A, B, C = 4,7619).
-
-## Licencias y atribución
-
-- **Código y golden set:** licencia **MIT** (`LICENSE`). El golden set (`data/golden/`) es trabajo propio del autor
-  (consultas redactadas con ayuda de un asistente de IA y juicios de relevancia puestos por una persona) y lo cubre la
-  misma licencia.
-- **Textos legislativos y datos derivados** (`data/chunks/`, `data/embeddings/`, `data/corpus.sha256` y los
-  fragmentos que devuelve la API): **no** los cubre la licencia MIT; siguen las condiciones de reutilización de EUR-Lex.
-
-**Atribución.** Los textos legislativos proceden de [EUR-Lex](https://eur-lex.europa.eu/) (© Unión Europea), descargados
-de la API Cellar de la Oficina de Publicaciones, y se reutilizan conforme a su política de reutilización (Decisión
-2011/833/UE), citando la fuente y sin alterar su sentido.
-
-**Modificaciones.** Se extrae el texto de los artículos del XHTML publicado, se normalizan los espacios, se unen en una
-línea las filas de las listas, se antepone «Article N. Título» a cada chunk y los artículos se segmentan en chunks. Solo
-se indexan los artículos: considerandos y anexos quedan fuera.
-
-**Avisos.** Solo los documentos publicados en el Diario Oficial de la Unión Europea se consideran auténticos: este
-proyecto **no es asesoramiento jurídico** y los textos que contiene no sustituyen a la versión oficial. Se trabaja con el
-texto publicado, no con el consolidado. No se usa el logotipo de EUR-Lex. Las condiciones se leyeron en el aviso legal de
-EUR-Lex y en el art. 6 de la Decisión 2011/833/UE el 15 de octubre de 2026; el ámbito de esa Decisión se define para
-documentos de la Comisión y estos tres actos los adoptan el Parlamento y el Consejo, así que quien necesite certeza
-jurídica debe consultarlo con la Oficina de Publicaciones.
+**Notices.** Only documents published in the Official Journal of the European Union are deemed authentic: this project is
+**not legal advice** and the texts it contains do not replace the official version. It works with the published text,
+not the consolidated one. The EUR-Lex logo is not used. The conditions were read in EUR-Lex's legal notice and in
+Article 6 of Decision 2011/833/EU on 15 October 2026; the scope of that Decision is defined for Commission documents and
+these three acts are adopted by the Parliament and the Council, so anyone who needs legal certainty should consult the
+Publications Office.
