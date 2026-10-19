@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, evaluate, gate, golden, report
+from scripts import bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, error_analysis, evaluate, gate, golden, report
 from scripts import download_corpus as corpus
 
 
@@ -118,6 +118,12 @@ def calibrate_gate_command(write_thresholds: bool):
 def gate_margin_command(margin: float):
     """Fija a mano el margen del gate (>= 0,01) y recalcula los umbrales desde la calibración guardada."""
     sys.exit(gate.run_set_margin(margin))
+
+
+@cli.command("error-analysis")
+def error_analysis_command():
+    """Analiza por qué falla cada consulta mala del híbrido y guarda results/error_analysis.json (local; requiere torch)."""
+    sys.exit(error_analysis.run())
 
 
 @cli.command("report")

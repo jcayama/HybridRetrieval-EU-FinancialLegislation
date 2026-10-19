@@ -24,6 +24,7 @@ LANGS = ("en", "es")
 DEFAULT_LANG = "en"
 README_FILES = {"en": ROOT / "README.md", "es": ROOT / "README.es.md"}
 RESULTS_DIR = ROOT / "results"
+ERRORS_FILE = RESULTS_DIR / "error_analysis.json"
 START, END = "<!-- results:start -->", "<!-- results:end -->"
 TLDR_START, TLDR_END = "<!-- tldr:start -->", "<!-- tldr:end -->"
 
@@ -100,6 +101,38 @@ PACKS = {
         "synthetic": "Sintético",
         "rows_suffix": "{thousands} filas",
         "exact_reference": "Exacta (referencia)",
+        "errors_title": "#### Análisis de errores (consultas malas del híbrido)",
+        "errors_intro": (
+            "Una consulta es **mala** para un chunking si el nDCG@10 del híbrido es menor que {thr} o no hay ningún artículo relevante (grado ≥ 2) en el "
+            "top-10: {n} casos, de {q} consultas distintas. Cada caso se contrasta con una **sonda**: la misma consulta con **un solo cambio**. Detalle "
+            "por caso (posiciones, términos, frecuencias) en `results/error_analysis.json`, generado con `python cli.py error-analysis`."
+        ),
+        "errors_header": ["Consulta", "Tipo", "Chunking", "nDCG@10 híbrido (original → sonda)", "Posición del artículo más relevante en el híbrido", "Cambio de la sonda y lo que pone a prueba", "Efecto"],
+        "errors_effect": {"explains": "explica el fallo", "partial": "parcial", "none": "sin efecto"},
+        "errors_probes": {
+            "q006": ["«technology suppliers» → «ICT third-party service providers»", "el texto usa otras palabras que la consulta"],
+            "q018": ["FTS con AND (`stress & test`) en lugar de OR", "`ts_rank_cd` no pondera por rareza del término"],
+            "q028": ["quitar «AI» de la consulta", "un término genérico presente en muchos chunks domina el FTS"],
+            "q029": ["añadir «regulatory sandbox»", "la paráfrasis evita el término que usa la norma"],
+            "q036": ["FTS con proximidad (`regist <2> inform`)", "FTS no trata la expresión como una unidad"],
+        },
+        "errors_none": "—",
+        "errors_notes": [
+            (
+                "Efecto de la sonda (regla fijada antes de calcular): **explica el fallo** si el nDCG@10 del híbrido sube al menos {strong}; **parcial** si "
+                "sube menos; **sin efecto** si no sube. Que una sonda explique el nDCG@10 de la consulta no significa que se recuperen todos sus artículos "
+                "juzgados: las posiciones por artículo están en el JSON."
+            ),
+            (
+                "Las sondas se redactaron **sabiendo cuál es el artículo relevante**: muestran que una causa es *suficiente* para explicar el fallo, no que "
+                "ese cambio mejore el sistema en general. No se usan para modificar el sistema ni el golden set."
+            ),
+            (
+                "Un artículo recuperado que el golden set no juzgó cuenta como fallo (ver «Sin pooling»): parte de estos casos puede ser un juicio incompleto"
+                " y no un error del sistema. Decidirlo corresponde a quien pone los juicios."
+            ),
+            "Son pocas consultas y un solo anotador: describen estos casos, no permiten generalizar.",
+        ],
         "tldr_best": "**Cifra global más alta de nDCG@10 entre los sistemas principales:** {system}, con {window} con ventanas ({article} con artículos), sobre {n} consultas.",
         "tldr_survivors": "**Las únicas comparaciones que sobreviven a la corrección por comparaciones múltiples:** {names}. Cualquier otra diferencia entre los sistemas principales no es detectable con {n} consultas.",
         "tldr_none": "**Ninguna diferencia entre los sistemas principales sobrevive a la corrección por comparaciones múltiples** con {n} consultas.",
@@ -145,6 +178,38 @@ PACKS = {
         "synthetic": "Synthetic",
         "rows_suffix": "{thousands} rows",
         "exact_reference": "Exact (reference)",
+        "errors_title": "#### Error analysis (the hybrid's bad queries)",
+        "errors_intro": (
+            "A query is **bad** for a chunking if the hybrid's nDCG@10 is below {thr} or there is no relevant article (grade ≥ 2) in the top 10: {n} "
+            "cases, from {q} distinct queries. Each case is contrasted with a **probe**: the same query with **a single change**. Per-case detail "
+            "(positions, terms, frequencies) is in `results/error_analysis.json`, generated with `python cli.py error-analysis`."
+        ),
+        "errors_header": ["Query", "Type", "Chunking", "Hybrid nDCG@10 (original → probe)", "Position of the most relevant article in the hybrid", "Probe change and what it tests", "Effect"],
+        "errors_effect": {"explains": "explains the failure", "partial": "partial", "none": "no effect"},
+        "errors_probes": {
+            "q006": ["«technology suppliers» → «ICT third-party service providers»", "the text uses different words than the query"],
+            "q018": ["FTS with AND (`stress & test`) instead of OR", "`ts_rank_cd` does not weigh how rare a term is"],
+            "q028": ["remove «AI» from the query", "a generic term present in many chunks dominates FTS"],
+            "q029": ["add «regulatory sandbox»", "the paraphrase avoids the term the law uses"],
+            "q036": ["FTS with proximity (`regist <2> inform`)", "FTS does not treat the phrase as a unit"],
+        },
+        "errors_none": "—",
+        "errors_notes": [
+            (
+                "Probe effect (rule fixed before computing): **explains the failure** if the hybrid's nDCG@10 rises by at least {strong}; **partial** if it "
+                "rises by less; **no effect** if it does not rise. A probe explaining a query's nDCG@10 does not mean that all its judged articles are "
+                "retrieved: per-article positions are in the JSON."
+            ),
+            (
+                "The probes were written **knowing which article is relevant**: they show that a cause is *sufficient* to explain the failure, not that the "
+                "change improves the system in general. They are not used to modify the system or the golden set."
+            ),
+            (
+                "A retrieved article that the golden set did not judge counts as a miss (see \"No pooling\"): some of these cases may be an incomplete "
+                "judgment rather than a system error. Deciding that belongs to whoever sets the judgments."
+            ),
+            "Few queries and a single annotator: they describe these cases and do not allow generalizing.",
+        ],
         "tldr_best": "**Highest overall nDCG@10 among the main systems:** {system}, with {window} using windows ({article} using articles), over {n} queries.",
         "tldr_survivors": "**The only comparisons that survive the multiple-comparison correction:** {names}. Every other difference between the main systems is not detectable with {n} queries.",
         "tldr_none": "**No difference between the main systems survives the multiple-comparison correction** with {n} queries.",
@@ -341,8 +406,34 @@ def section_indexes(lang: str = DEFAULT_LANG) -> str:
     return t["index_title"] + "\n\n" + table(t["index_header"], rows)
 
 
+def section_errors(lang: str = DEFAULT_LANG) -> str:
+    t = PACKS[lang]
+    data = json.loads(ERRORS_FILE.read_text(encoding="utf-8"))
+    rows = []
+    for case in data["cases"]:
+        article, before = max(case["positions"].items(), key=lambda item: (item[1]["grade"], item[0]))  # el artículo de mayor grado
+        probe = case["probe"]
+        after = probe["positions"][article]["hybrid"]
+        shown = lambda pos: t["errors_none"] if pos is None else str(pos)  # noqa: E731
+        change, cause = t["errors_probes"][case["query_id"]]
+        rows.append(
+            [
+                f"{case['query_id']}: {case['query']}",
+                t["type"][case["type"]],
+                t["chunk"][case["chunking"]],
+                f"{fmt(case['ndcg@10'], 3, lang)} → {fmt(probe['ndcg@10'], 3, lang)}",
+                f"{article}: {shown(before['hybrid'])} → {shown(after)}",
+                f"{change} ({cause})",
+                t["errors_effect"][probe["effect"]],
+            ]
+        )
+    intro = t["errors_intro"].format(thr=fmt(data["bad_ndcg"], 1, lang), n=data["n_cases"], q=len({c["query_id"] for c in data["cases"]}))
+    notes = "\n".join(f"- {n.format(strong=fmt(data['effect_strong'], 1, lang))}" for n in t["errors_notes"])
+    return t["errors_title"] + "\n\n" + intro + "\n\n" + table(t["errors_header"], rows) + "\n\n" + notes
+
+
 def render(results: dict[str, dict], types: dict[str, str], lang: str = DEFAULT_LANG) -> str:
-    return "\n\n".join([section_systems(results, lang), section_by_type(results, lang), section_comparisons(results, types, lang), section_gate(lang), section_indexes(lang)])
+    return "\n\n".join([section_systems(results, lang), section_by_type(results, lang), section_comparisons(results, types, lang), section_gate(lang), section_indexes(lang), section_errors(lang)])
 
 
 # ---------- bloque «tldr» (cifras clave del resumen inicial) ----------

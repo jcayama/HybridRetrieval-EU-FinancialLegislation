@@ -1,0 +1,776 @@
+{
+  "bad_ndcg": 0.3,
+  "cases": [
+    {
+      "chunking": "article",
+      "hybrid_top5": [
+        "DORA 26",
+        "DORA 8",
+        "DORA 28",
+        "DORA 31",
+        "DORA 13"
+      ],
+      "lemma_chunk_frequency": {
+        "depend": 12,
+        "financi": 79,
+        "firm": 14,
+        "identifi": 52,
+        "supervis": 37,
+        "supplier": 1,
+        "technolog": 20
+      },
+      "lemmas_in_relevant": {
+        "DORA 31": {
+          "absent": [
+            "firm",
+            "identifi",
+            "supervis",
+            "supplier"
+          ],
+          "present": [
+            "depend",
+            "financi",
+            "technolog"
+          ]
+        },
+        "DORA 32": {
+          "absent": [
+            "depend",
+            "firm",
+            "identifi",
+            "supplier",
+            "technolog"
+          ],
+          "present": [
+            "financi",
+            "supervis"
+          ]
+        }
+      },
+      "lexical_winner": {
+        "article": "DORA 26",
+        "present": [
+          "financi",
+          "identifi",
+          "technolog"
+        ]
+      },
+      "ndcg@10": 0.21100519510067825,
+      "positions": {
+        "DORA 31": {
+          "dense": 6,
+          "fts": 5,
+          "grade": 3,
+          "hybrid": 4
+        },
+        "DORA 32": {
+          "dense": 155,
+          "fts": 47,
+          "grade": 2,
+          "hybrid": 73
+        },
+        "DORA 33": {
+          "dense": 36,
+          "fts": 32,
+          "grade": 2,
+          "hybrid": 29
+        },
+        "DORA 35": {
+          "dense": 24,
+          "fts": 16,
+          "grade": 2,
+          "hybrid": 15
+        }
+      },
+      "probe": {
+        "effect": "explains",
+        "kind": "query",
+        "ndcg@10": 0.6971384011325171,
+        "positions": {
+          "DORA 31": {
+            "dense": 1,
+            "fts": 1,
+            "grade": 3,
+            "hybrid": 1
+          },
+          "DORA 32": {
+            "dense": 78,
+            "fts": 24,
+            "grade": 2,
+            "hybrid": 38
+          },
+          "DORA 33": {
+            "dense": 6,
+            "fts": 9,
+            "grade": 2,
+            "hybrid": 9
+          },
+          "DORA 35": {
+            "dense": 9,
+            "fts": 5,
+            "grade": 2,
+            "hybrid": 7
+          }
+        },
+        "value": "How are the ICT third-party service providers that financial firms depend on most identified and supervised?"
+      },
+      "query": "How are the technology suppliers that financial firms depend on most identified and supervised?",
+      "query_id": "q006",
+      "recall@10": 0.25,
+      "type": "multi_article"
+    },
+    {
+      "chunking": "article",
+      "hybrid_top5": [
+        "DORA 25",
+        "AI Act 60",
+        "DORA 24",
+        "DORA 26",
+        "AI Act 61"
+      ],
+      "lemma_chunk_frequency": {
+        "stress": 4,
+        "test": 45
+      },
+      "lemmas_in_relevant": {
+        "AIFMD 15": {
+          "absent": [],
+          "present": [
+            "stress",
+            "test"
+          ]
+        }
+      },
+      "lexical_winner": {
+        "article": "AI Act 60",
+        "present": [
+          "test"
+        ]
+      },
+      "ndcg@10": 0.07636655561934667,
+      "positions": {
+        "AIFMD 15": {
+          "dense": 101,
+          "fts": 17,
+          "grade": 3,
+          "hybrid": 25
+        },
+        "AIFMD 16": {
+          "dense": 8,
+          "fts": 18,
+          "grade": 1,
+          "hybrid": 8
+        },
+        "AIFMD 24": {
+          "dense": 172,
+          "fts": 19,
+          "grade": 1,
+          "hybrid": 34
+        }
+      },
+      "probe": {
+        "effect": "explains",
+        "kind": "fts_tsquery",
+        "ndcg@10": 0.8213137146137828,
+        "positions": {
+          "AIFMD 15": {
+            "dense": 101,
+            "fts": 1,
+            "grade": 3,
+            "hybrid": 2
+          },
+          "AIFMD 16": {
+            "dense": 8,
+            "fts": 2,
+            "grade": 1,
+            "hybrid": 1
+          },
+          "AIFMD 24": {
+            "dense": 172,
+            "fts": 3,
+            "grade": 1,
+            "hybrid": 3
+          }
+        },
+        "value": "stress & test"
+      },
+      "query": "stress tests",
+      "query_id": "q018",
+      "recall@10": 0.0,
+      "type": "exact_term"
+    },
+    {
+      "chunking": "article",
+      "hybrid_top5": [
+        "AI Act 25",
+        "AI Act 3",
+        "AI Act 74",
+        "AI Act 79",
+        "AI Act 6"
+      ],
+      "lemma_chunk_frequency": {
+        "ai": 95,
+        "compani": 18,
+        "market": 107,
+        "new": 17,
+        "offici": 21,
+        "place": 72,
+        "supervis": 37,
+        "system": 133,
+        "tri": 2
+      },
+      "lemmas_in_relevant": {
+        "AI Act 57": {
+          "absent": [
+            "compani",
+            "new",
+            "offici",
+            "tri"
+          ],
+          "present": [
+            "ai",
+            "market",
+            "place",
+            "supervis",
+            "system"
+          ]
+        },
+        "AI Act 58": {
+          "absent": [
+            "compani",
+            "market",
+            "new",
+            "offici",
+            "place",
+            "tri"
+          ],
+          "present": [
+            "ai",
+            "supervis",
+            "system"
+          ]
+        }
+      },
+      "lexical_winner": {
+        "article": "AI Act 3",
+        "present": [
+          "ai",
+          "market",
+          "place",
+          "supervis",
+          "system"
+        ]
+      },
+      "ndcg@10": 0.11990623328406573,
+      "positions": {
+        "AI Act 57": {
+          "dense": 25,
+          "fts": 9,
+          "grade": 3,
+          "hybrid": 13
+        },
+        "AI Act 58": {
+          "dense": 46,
+          "fts": 29,
+          "grade": 2,
+          "hybrid": 32
+        },
+        "AI Act 60": {
+          "dense": 10,
+          "fts": 11,
+          "grade": 2,
+          "hybrid": 8
+        }
+      },
+      "probe": {
+        "effect": "explains",
+        "kind": "query",
+        "ndcg@10": 1.0,
+        "positions": {
+          "AI Act 57": {
+            "dense": 2,
+            "fts": 2,
+            "grade": 3,
+            "hybrid": 1
+          },
+          "AI Act 58": {
+            "dense": 6,
+            "fts": 6,
+            "grade": 2,
+            "hybrid": 2
+          },
+          "AI Act 60": {
+            "dense": 3,
+            "fts": 11,
+            "grade": 2,
+            "hybrid": 3
+          }
+        },
+        "value": "Can companies try out new AI systems in a regulatory sandbox under official supervision before placing them on the market?"
+      },
+      "query": "Can companies try out new AI systems under official supervision before placing them on the market?",
+      "query_id": "q029",
+      "recall@10": 0.3333333333333333,
+      "type": "paraphrase"
+    },
+    {
+      "chunking": "article",
+      "hybrid_top5": [
+        "DORA 37",
+        "AI Act 91",
+        "AIFMD 28",
+        "AIFMD 7",
+        "AI Act 45"
+      ],
+      "lemma_chunk_frequency": {
+        "inform": 155,
+        "regist": 22
+      },
+      "lemmas_in_relevant": {
+        "DORA 28": {
+          "absent": [],
+          "present": [
+            "inform",
+            "regist"
+          ]
+        }
+      },
+      "lexical_winner": {
+        "article": "AIFMD 37",
+        "present": [
+          "inform",
+          "regist"
+        ]
+      },
+      "ndcg@10": 0.0,
+      "positions": {
+        "DORA 28": {
+          "dense": null,
+          "fts": 11,
+          "grade": 3,
+          "hybrid": 72
+        }
+      },
+      "probe": {
+        "effect": "explains",
+        "kind": "fts_tsquery",
+        "ndcg@10": 1.0,
+        "positions": {
+          "DORA 28": {
+            "dense": null,
+            "fts": 1,
+            "grade": 3,
+            "hybrid": 1
+          }
+        },
+        "value": "regist <2> inform"
+      },
+      "query": "register of information",
+      "query_id": "q036",
+      "recall@10": 0.0,
+      "type": "exact_term"
+    },
+    {
+      "chunking": "window",
+      "hybrid_top5": [
+        "DORA 8",
+        "DORA 26",
+        "DORA 31",
+        "DORA 42",
+        "DORA 13"
+      ],
+      "lemma_chunk_frequency": {
+        "depend": 15,
+        "financi": 198,
+        "firm": 20,
+        "identifi": 93,
+        "supervis": 73,
+        "supplier": 1,
+        "technolog": 24
+      },
+      "lemmas_in_relevant": {
+        "DORA 31": {
+          "absent": [
+            "firm",
+            "identifi",
+            "supervis",
+            "supplier"
+          ],
+          "present": [
+            "depend",
+            "financi",
+            "technolog"
+          ]
+        },
+        "DORA 32": {
+          "absent": [
+            "depend",
+            "firm",
+            "identifi",
+            "supplier",
+            "technolog"
+          ],
+          "present": [
+            "financi",
+            "supervis"
+          ]
+        }
+      },
+      "lexical_winner": {
+        "article": "DORA 26",
+        "present": [
+          "financi",
+          "identifi",
+          "technolog"
+        ]
+      },
+      "ndcg@10": 0.244969445335727,
+      "positions": {
+        "DORA 31": {
+          "dense": 3,
+          "fts": 4,
+          "grade": 3,
+          "hybrid": 3
+        },
+        "DORA 32": {
+          "dense": null,
+          "fts": 147,
+          "grade": 2,
+          "hybrid": null
+        },
+        "DORA 33": {
+          "dense": 32,
+          "fts": 72,
+          "grade": 2,
+          "hybrid": 22
+        },
+        "DORA 35": {
+          "dense": 19,
+          "fts": 28,
+          "grade": 2,
+          "hybrid": 11
+        }
+      },
+      "probe": {
+        "effect": "explains",
+        "kind": "query",
+        "ndcg@10": 0.6873939654158069,
+        "positions": {
+          "DORA 31": {
+            "dense": 1,
+            "fts": 1,
+            "grade": 3,
+            "hybrid": 1
+          },
+          "DORA 32": {
+            "dense": 164,
+            "fts": 55,
+            "grade": 2,
+            "hybrid": 46
+          },
+          "DORA 33": {
+            "dense": 18,
+            "fts": 12,
+            "grade": 2,
+            "hybrid": 8
+          },
+          "DORA 35": {
+            "dense": 28,
+            "fts": 13,
+            "grade": 2,
+            "hybrid": 10
+          }
+        },
+        "value": "How are the ICT third-party service providers that financial firms depend on most identified and supervised?"
+      },
+      "query": "How are the technology suppliers that financial firms depend on most identified and supervised?",
+      "query_id": "q006",
+      "recall@10": 0.25,
+      "type": "multi_article"
+    },
+    {
+      "chunking": "window",
+      "hybrid_top5": [
+        "DORA 25",
+        "AI Act 60",
+        "DORA 24",
+        "DORA 26",
+        "AI Act 61"
+      ],
+      "lemma_chunk_frequency": {
+        "stress": 5,
+        "test": 84
+      },
+      "lemmas_in_relevant": {
+        "AIFMD 15": {
+          "absent": [],
+          "present": [
+            "stress",
+            "test"
+          ]
+        }
+      },
+      "lexical_winner": {
+        "article": "DORA 25",
+        "present": [
+          "test"
+        ]
+      },
+      "ndcg@10": 0.06997573029848124,
+      "positions": {
+        "AIFMD 15": {
+          "dense": 86,
+          "fts": 28,
+          "grade": 3,
+          "hybrid": 17
+        },
+        "AIFMD 16": {
+          "dense": 20,
+          "fts": 29,
+          "grade": 1,
+          "hybrid": 10
+        },
+        "AIFMD 24": {
+          "dense": 97,
+          "fts": 30,
+          "grade": 1,
+          "hybrid": 21
+        }
+      },
+      "probe": {
+        "effect": "explains",
+        "kind": "fts_tsquery",
+        "ndcg@10": 0.8213137146137828,
+        "positions": {
+          "AIFMD 15": {
+            "dense": 86,
+            "fts": 1,
+            "grade": 3,
+            "hybrid": 2
+          },
+          "AIFMD 16": {
+            "dense": 20,
+            "fts": 2,
+            "grade": 1,
+            "hybrid": 1
+          },
+          "AIFMD 24": {
+            "dense": 97,
+            "fts": 3,
+            "grade": 1,
+            "hybrid": 3
+          }
+        },
+        "value": "stress & test"
+      },
+      "query": "stress tests",
+      "query_id": "q018",
+      "recall@10": 0.0,
+      "type": "exact_term"
+    },
+    {
+      "chunking": "window",
+      "hybrid_top5": [
+        "AI Act 25",
+        "AI Act 57",
+        "AI Act 75",
+        "AI Act 1",
+        "AI Act 101"
+      ],
+      "lemma_chunk_frequency": {
+        "ai": 257,
+        "break": 1,
+        "compani": 31,
+        "fine": 18,
+        "larg": 9,
+        "rule": 87
+      },
+      "lemmas_in_relevant": {
+        "AI Act 99": {
+          "absent": [
+            "break",
+            "compani",
+            "larg"
+          ],
+          "present": [
+            "ai",
+            "fine",
+            "rule"
+          ]
+        }
+      },
+      "lexical_winner": {
+        "article": "AI Act 1",
+        "present": [
+          "ai",
+          "rule"
+        ]
+      },
+      "ndcg@10": 0.2890648263178878,
+      "positions": {
+        "AI Act 99": {
+          "dense": 2,
+          "fts": 50,
+          "grade": 3,
+          "hybrid": 10
+        }
+      },
+      "probe": {
+        "effect": "explains",
+        "kind": "query",
+        "ndcg@10": 1.0,
+        "positions": {
+          "AI Act 99": {
+            "dense": 1,
+            "fts": 4,
+            "grade": 3,
+            "hybrid": 1
+          }
+        },
+        "value": "How large can the fines be for companies that break the rules?"
+      },
+      "query": "How large can the fines be for companies that break the AI rules?",
+      "query_id": "q028",
+      "recall@10": 1.0,
+      "type": "paraphrase"
+    },
+    {
+      "chunking": "window",
+      "hybrid_top5": [
+        "AI Act 25",
+        "AI Act 75",
+        "AI Act 111",
+        "AI Act 80",
+        "AI Act 2"
+      ],
+      "lemma_chunk_frequency": {
+        "ai": 257,
+        "compani": 31,
+        "market": 288,
+        "new": 23,
+        "offici": 29,
+        "place": 128,
+        "supervis": 73,
+        "system": 325,
+        "tri": 2
+      },
+      "lemmas_in_relevant": {
+        "AI Act 57": {
+          "absent": [
+            "compani",
+            "new",
+            "offici",
+            "tri"
+          ],
+          "present": [
+            "ai",
+            "market",
+            "place",
+            "supervis",
+            "system"
+          ]
+        },
+        "AI Act 58": {
+          "absent": [
+            "compani",
+            "market",
+            "new",
+            "offici",
+            "place",
+            "tri"
+          ],
+          "present": [
+            "ai",
+            "supervis",
+            "system"
+          ]
+        }
+      },
+      "lexical_winner": {
+        "article": "AI Act 25",
+        "present": [
+          "ai",
+          "market",
+          "new",
+          "place",
+          "system"
+        ]
+      },
+      "ndcg@10": 0.0,
+      "positions": {
+        "AI Act 57": {
+          "dense": 21,
+          "fts": 50,
+          "grade": 3,
+          "hybrid": 18
+        },
+        "AI Act 58": {
+          "dense": 39,
+          "fts": 117,
+          "grade": 2,
+          "hybrid": 37
+        },
+        "AI Act 60": {
+          "dense": 12,
+          "fts": 20,
+          "grade": 2,
+          "hybrid": 11
+        }
+      },
+      "probe": {
+        "effect": "explains",
+        "kind": "query",
+        "ndcg@10": 0.9453452481212085,
+        "positions": {
+          "AI Act 57": {
+            "dense": 2,
+            "fts": 4,
+            "grade": 3,
+            "hybrid": 1
+          },
+          "AI Act 58": {
+            "dense": 1,
+            "fts": 10,
+            "grade": 2,
+            "hybrid": 6
+          },
+          "AI Act 60": {
+            "dense": 7,
+            "fts": 12,
+            "grade": 2,
+            "hybrid": 2
+          }
+        },
+        "value": "Can companies try out new AI systems in a regulatory sandbox under official supervision before placing them on the market?"
+      },
+      "query": "Can companies try out new AI systems under official supervision before placing them on the market?",
+      "query_id": "q029",
+      "recall@10": 0.0,
+      "type": "paraphrase"
+    }
+  ],
+  "cases_by_type": {
+    "exact_term": 3,
+    "multi_article": 2,
+    "paraphrase": 3
+  },
+  "effect_strong": 0.1,
+  "inputs": {
+    "article": {
+      "chunks_sha256": "89175ff69787fd5dde01a7c32c9acf8a3332637cfe514f4594ae368b9e0fde7e",
+      "golden_sha256": {
+        "qrels.jsonl": "8c8ded0eab3924607489e06ebff2a35a97665c22e9f4fe7088df27a9ac7552ef",
+        "queries.jsonl": "5935bc558d10f39b4e25c40556eae44150ac47cfbbbdbea109097ee1eb00e8fa"
+      }
+    },
+    "window": {
+      "chunks_sha256": "db88a6010c39ffcf7b431febd60201162dbf3e4889294108cfae8266b7097fe4",
+      "golden_sha256": {
+        "qrels.jsonl": "8c8ded0eab3924607489e06ebff2a35a97665c22e9f4fe7088df27a9ac7552ef",
+        "queries.jsonl": "5935bc558d10f39b4e25c40556eae44150ac47cfbbbdbea109097ee1eb00e8fa"
+      }
+    }
+  },
+  "n_cases": 8,
+  "system": "hybrid"
+}

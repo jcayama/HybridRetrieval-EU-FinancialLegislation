@@ -234,6 +234,26 @@ Bonferroni correction over 21 (the 15 primary comparisons plus these 6). 1 of 6 
 |  | HNSW (ef_search=40) | ef_construction=64, m=16 | 0.993 | 1.35 | 31.6 | 204.8 |
 |  | IVFFlat (probes=1) | lists=100 | 0.998 | 1.46 | 2.6 | 164.3 |
 |  | IVFFlat (probes=10) | lists=100 | 1.000 | 6.83 | 2.6 | 164.3 |
+
+#### Error analysis (the hybrid's bad queries)
+
+A query is **bad** for a chunking if the hybrid's nDCG@10 is below 0.3 or there is no relevant article (grade ≥ 2) in the top 10: 8 cases, from 5 distinct queries. Each case is contrasted with a **probe**: the same query with **a single change**. Per-case detail (positions, terms, frequencies) is in `results/error_analysis.json`, generated with `python cli.py error-analysis`.
+
+| Query | Type | Chunking | Hybrid nDCG@10 (original → probe) | Position of the most relevant article in the hybrid | Probe change and what it tests | Effect |
+|---|---|---|---|---|---|---|
+| q006: How are the technology suppliers that financial firms depend on most identified and supervised? | Multi-article | article | 0.211 → 0.697 | DORA 31: 4 → 1 | «technology suppliers» → «ICT third-party service providers» (the text uses different words than the query) | explains the failure |
+| q018: stress tests | Exact term | article | 0.076 → 0.821 | AIFMD 15: 25 → 2 | FTS with AND (`stress & test`) instead of OR (`ts_rank_cd` does not weigh how rare a term is) | explains the failure |
+| q029: Can companies try out new AI systems under official supervision before placing them on the market? | Paraphrase | article | 0.120 → 1.000 | AI Act 57: 13 → 1 | add «regulatory sandbox» (the paraphrase avoids the term the law uses) | explains the failure |
+| q036: register of information | Exact term | article | 0.000 → 1.000 | DORA 28: 72 → 1 | FTS with proximity (`regist <2> inform`) (FTS does not treat the phrase as a unit) | explains the failure |
+| q006: How are the technology suppliers that financial firms depend on most identified and supervised? | Multi-article | window | 0.245 → 0.687 | DORA 31: 3 → 1 | «technology suppliers» → «ICT third-party service providers» (the text uses different words than the query) | explains the failure |
+| q018: stress tests | Exact term | window | 0.070 → 0.821 | AIFMD 15: 17 → 2 | FTS with AND (`stress & test`) instead of OR (`ts_rank_cd` does not weigh how rare a term is) | explains the failure |
+| q028: How large can the fines be for companies that break the AI rules? | Paraphrase | window | 0.289 → 1.000 | AI Act 99: 10 → 1 | remove «AI» from the query (a generic term present in many chunks dominates FTS) | explains the failure |
+| q029: Can companies try out new AI systems under official supervision before placing them on the market? | Paraphrase | window | 0.000 → 0.945 | AI Act 57: 18 → 1 | add «regulatory sandbox» (the paraphrase avoids the term the law uses) | explains the failure |
+
+- Probe effect (rule fixed before computing): **explains the failure** if the hybrid's nDCG@10 rises by at least 0.1; **partial** if it rises by less; **no effect** if it does not rise. A probe explaining a query's nDCG@10 does not mean that all its judged articles are retrieved: per-article positions are in the JSON.
+- The probes were written **knowing which article is relevant**: they show that a cause is *sufficient* to explain the failure, not that the change improves the system in general. They are not used to modify the system or the golden set.
+- A retrieved article that the golden set did not judge counts as a miss (see "No pooling"): some of these cases may be an incomplete judgment rather than a system error. Deciding that belongs to whoever sets the judgments.
+- Few queries and a single annotator: they describe these cases and do not allow generalizing.
 <!-- results:end -->
 
 ## Try the API
@@ -541,6 +561,7 @@ virtual environment active. `python cli.py --help` lists the available commands.
 | `python cli.py gate` | Regression gate: fails if the hybrid (exact search) falls below the thresholds in `data/gate/thresholds.json`. |
 | `python cli.py calibrate-gate [--write-thresholds]` | Recomputes noise, sensitivity to regressions and thresholds (local; needs torch). |
 | `python cli.py gate-margin X` | Sets the gate margin by hand (≥ 0.01) and recomputes the thresholds from the stored calibration. |
+| `python cli.py error-analysis` | Analyzes why each bad query of the hybrid fails (positions, terms, one-change probes) and writes `results/error_analysis.json`, which `report` turns into the «Error analysis» section. Local; the probes with rewritten queries need torch. |
 | `python cli.py report [--check]` | Writes the generated blocks of both READMEs (between the `tldr:start`/`tldr:end` and `results:start`/`results:end` markers) from `results/`, `data/gate/` and `results/index_benchmark.json`. With `--check` it does not write: it fails if a README is stale. |
 | `python cli.py init-db` | Creates (or updates) the schema in Postgres. Needs `docker compose up -d` and the `.env`. |
 | `python cli.py load-db` | Loads `data/chunks/*.jsonl` into Postgres. Idempotent: replaces what was there and records the hash of the loaded files. |

@@ -161,3 +161,25 @@ def test_the_headline_is_derived_from_the_data(real, lang):
     best = json.loads((rp.RESULTS_DIR / "hybrid_window.json").read_text())["summary"]["overall"]["mean"]
     assert rp.fmt(best["ndcg@10"], lang=lang) in text and rp.fmt(best["recall@10"], lang=lang) in text
     assert text.count("\n- ") + 1 == 3 and "| " in text  # tres viñetas y una tabla
+
+
+# ---------- análisis de errores ----------
+
+
+@pytest.mark.parametrize("lang", rp.LANGS)
+def test_the_error_section_has_one_row_per_case_and_text_for_every_probe_and_effect(lang):
+    data = json.loads(rp.ERRORS_FILE.read_text(encoding="utf-8"))
+    t = rp.PACKS[lang]
+    assert {c["query_id"] for c in data["cases"]} <= set(t["errors_probes"])  # ninguna sonda sin texto
+    assert {c["probe"]["effect"] for c in data["cases"]} <= set(t["errors_effect"])
+    section = rp.section_errors(lang)
+    rows = [line for line in section.splitlines() if line.startswith("| q0")]
+    assert len(rows) == data["n_cases"] and f"{data['n_cases']} " in section.split("\n\n")[1]
+    assert all(line.count("|") == len(t["errors_header"]) + 1 for line in rows)  # ningún «|» suelto rompe la tabla
+
+
+def test_the_error_section_is_in_the_right_language_and_inside_the_results_block(real):
+    results, types = real
+    en, es = rp.render(results, types, "en"), rp.render(results, types, "es")
+    assert "#### Error analysis" in en and "explains the failure" in en and "Análisis de errores" not in en
+    assert "#### Análisis de errores" in es and "explica el fallo" in es and "Error analysis" not in es

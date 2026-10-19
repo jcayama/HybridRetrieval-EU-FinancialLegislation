@@ -237,6 +237,26 @@ Corrección de Bonferroni sobre 21 (las 15 principales más estas 6). 1 de 6 exc
 |  | HNSW (ef_search=40) | ef_construction=64, m=16 | 0,993 | 1,35 | 31,6 | 204,8 |
 |  | IVFFlat (probes=1) | lists=100 | 0,998 | 1,46 | 2,6 | 164,3 |
 |  | IVFFlat (probes=10) | lists=100 | 1,000 | 6,83 | 2,6 | 164,3 |
+
+#### Análisis de errores (consultas malas del híbrido)
+
+Una consulta es **mala** para un chunking si el nDCG@10 del híbrido es menor que 0,3 o no hay ningún artículo relevante (grado ≥ 2) en el top-10: 8 casos, de 5 consultas distintas. Cada caso se contrasta con una **sonda**: la misma consulta con **un solo cambio**. Detalle por caso (posiciones, términos, frecuencias) en `results/error_analysis.json`, generado con `python cli.py error-analysis`.
+
+| Consulta | Tipo | Chunking | nDCG@10 híbrido (original → sonda) | Posición del artículo más relevante en el híbrido | Cambio de la sonda y lo que pone a prueba | Efecto |
+|---|---|---|---|---|---|---|
+| q006: How are the technology suppliers that financial firms depend on most identified and supervised? | Multi-artículo | artículo | 0,211 → 0,697 | DORA 31: 4 → 1 | «technology suppliers» → «ICT third-party service providers» (el texto usa otras palabras que la consulta) | explica el fallo |
+| q018: stress tests | Término exacto | artículo | 0,076 → 0,821 | AIFMD 15: 25 → 2 | FTS con AND (`stress & test`) en lugar de OR (`ts_rank_cd` no pondera por rareza del término) | explica el fallo |
+| q029: Can companies try out new AI systems under official supervision before placing them on the market? | Paráfrasis | artículo | 0,120 → 1,000 | AI Act 57: 13 → 1 | añadir «regulatory sandbox» (la paráfrasis evita el término que usa la norma) | explica el fallo |
+| q036: register of information | Término exacto | artículo | 0,000 → 1,000 | DORA 28: 72 → 1 | FTS con proximidad (`regist <2> inform`) (FTS no trata la expresión como una unidad) | explica el fallo |
+| q006: How are the technology suppliers that financial firms depend on most identified and supervised? | Multi-artículo | ventanas | 0,245 → 0,687 | DORA 31: 3 → 1 | «technology suppliers» → «ICT third-party service providers» (el texto usa otras palabras que la consulta) | explica el fallo |
+| q018: stress tests | Término exacto | ventanas | 0,070 → 0,821 | AIFMD 15: 17 → 2 | FTS con AND (`stress & test`) en lugar de OR (`ts_rank_cd` no pondera por rareza del término) | explica el fallo |
+| q028: How large can the fines be for companies that break the AI rules? | Paráfrasis | ventanas | 0,289 → 1,000 | AI Act 99: 10 → 1 | quitar «AI» de la consulta (un término genérico presente en muchos chunks domina el FTS) | explica el fallo |
+| q029: Can companies try out new AI systems under official supervision before placing them on the market? | Paráfrasis | ventanas | 0,000 → 0,945 | AI Act 57: 18 → 1 | añadir «regulatory sandbox» (la paráfrasis evita el término que usa la norma) | explica el fallo |
+
+- Efecto de la sonda (regla fijada antes de calcular): **explica el fallo** si el nDCG@10 del híbrido sube al menos 0,1; **parcial** si sube menos; **sin efecto** si no sube. Que una sonda explique el nDCG@10 de la consulta no significa que se recuperen todos sus artículos juzgados: las posiciones por artículo están en el JSON.
+- Las sondas se redactaron **sabiendo cuál es el artículo relevante**: muestran que una causa es *suficiente* para explicar el fallo, no que ese cambio mejore el sistema en general. No se usan para modificar el sistema ni el golden set.
+- Un artículo recuperado que el golden set no juzgó cuenta como fallo (ver «Sin pooling»): parte de estos casos puede ser un juicio incompleto y no un error del sistema. Decidirlo corresponde a quien pone los juicios.
+- Son pocas consultas y un solo anotador: describen estos casos, no permiten generalizar.
 <!-- results:end -->
 
 ## Probar la API
@@ -552,6 +572,7 @@ el entorno virtual activo. `python cli.py --help` lista los comandos disponibles
 | `python cli.py gate` | Regression gate: falla si el híbrido (búsqueda exacta) cae bajo los umbrales de `data/gate/thresholds.json`. |
 | `python cli.py calibrate-gate [--write-thresholds]` | Recalcula ruido, sensibilidad a regresiones y umbrales (local; requiere torch). |
 | `python cli.py gate-margin X` | Fija a mano el margen del gate (≥ 0,01) y recalcula los umbrales desde la calibración guardada. |
+| `python cli.py error-analysis` | Analiza por qué falla cada consulta mala del híbrido (posiciones, términos, sondas de un solo cambio) y guarda `results/error_analysis.json`, que `report` convierte en la sección «Análisis de errores». Local; las sondas con consultas reescritas necesitan torch. |
 | `python cli.py report [--check]` | Escribe los bloques generados de los dos README (entre las marcas `tldr:start`/`tldr:end` y `results:start`/`results:end`) a partir de `results/`, `data/gate/` y `results/index_benchmark.json`. Con `--check` no escribe: falla si algún README está desactualizado. |
 | `python cli.py init-db` | Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el `.env`. |
 | `python cli.py load-db` | Carga `data/chunks/*.jsonl` en Postgres. Idempotente: reemplaza lo anterior y registra el hash de los ficheros cargados. |
