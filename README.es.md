@@ -2,6 +2,10 @@
 
 [English](README.md) · **Español**
 
+[![CI](https://github.com/jcayama/HybridRetrieval-EU-FinancialLegislation/actions/workflows/ci.yml/badge.svg)](https://github.com/jcayama/HybridRetrieval-EU-FinancialLegislation/actions/workflows/ci.yml) ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg) ![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)
+
+> **¿La búsqueda híbrida supera de verdad a la de palabras clave?** Este proyecto lo mide sobre tres normas financieras de la UE, con un conjunto de prueba congelado y etiquetado por una persona, intervalos de confianza y un relato claro de lo que los datos pueden y no pueden demostrar.
+
 ## Resumen
 
 **Qué es.** Un experimento reproducible que mide qué tan bien tres formas de buscar encuentran el artículo correcto en
@@ -65,6 +69,76 @@ flowchart TB
 docker compose up -d && python cli.py init-db && python cli.py load-db   # una vez; ver «Desarrollo»
 uvicorn main:app --port 5013                                             # y abre http://localhost:5013/docs
 ```
+
+**Ejemplo.** Una pregunta sobre plazos de notificación (respuesta abreviada: fragmentos recortados y coseno redondeado):
+
+```bash
+curl -s -X POST localhost:5013/hybridretrievals -H 'content-type: application/json' \
+  -d '{"query": "How long do financial entities have to report a major ICT incident to the authority?", "top_k": 3}'
+```
+
+<!-- example:start -->
+```json
+{
+  "query": "How long do financial entities have to report a major ICT incident to the authority?",
+  "mode": "hybrid",
+  "chunking": "window",
+  "top_k": 3,
+  "results": [
+    {
+      "rank": 1,
+      "chunk_id": "32022R2554:art_19:w200:0",
+      "act": "DORA 2022/2554",
+      "celex": "32022R2554",
+      "article": 19,
+      "title": "Reporting of major ICT-related incidents and voluntary notification of significant cyber threats",
+      "snippet": "1. Financial entities shall report major ICT-related incidents to the relevant competent…",
+      "chunk_words": 200
+    },
+    {
+      "rank": 2,
+      "chunk_id": "32022R2554:art_17:w200:0",
+      "act": "DORA 2022/2554",
+      "celex": "32022R2554",
+      "article": 17,
+      "title": "ICT-related incident management process",
+      "snippet": "1. Financial entities shall define, establish and implement an ICT-related incident…",
+      "chunk_words": 200
+    },
+    {
+      "rank": 3,
+      "chunk_id": "32022R2554:art_18:w200:0",
+      "act": "DORA 2022/2554",
+      "celex": "32022R2554",
+      "article": 18,
+      "title": "Classification of ICT-related incidents and cyber threats",
+      "snippet": "1. Financial entities shall classify ICT-related incidents and shall determine their…",
+      "chunk_words": 200
+    }
+  ],
+  "abstained": false,
+  "best_cosine": 0.818
+}
+```
+<!-- example:end -->
+
+El artículo 19 de DORA es el artículo correcto. Ojo: remite a los plazos pero no los fija: su apartado 4 habla de plazos que se establecerán en normas técnicas (artículo 20), que no forman parte del corpus. El sistema recupera artículos; no responde preguntas.
+
+Una consulta ajena al corpus no se fuerza a dar resultados (en [Probar la API](#probar-la-api) se explica cuándo se aplica):
+
+<!-- example-abstention:start -->
+```json
+{
+  "query": "What is the best pizza recipe in Naples?",
+  "mode": "hybrid",
+  "chunking": "window",
+  "top_k": 3,
+  "results": [],
+  "abstained": true,
+  "best_cosine": 0.348
+}
+```
+<!-- example-abstention:end -->
 
 **Qué demuestra este proyecto**
 
@@ -141,6 +215,9 @@ Qué leer de esta sección y qué no:
   [Método de evaluación](#golden-set-y-método-de-evaluación)).
 - Todo el bloque siguiente lo escribe `python cli.py report`; `python cli.py report --check` falla si está
   desactualizado.
+
+<details>
+<summary>Tablas completas de resultados (clic para desplegar)</summary>
 
 <!-- results:start -->
 #### Métricas globales (40 consultas)
@@ -309,6 +386,8 @@ Con chunking por ventanas, el umbral que conserva al menos el 95 % del golden se
 - Que las consultas sin respuesta no tengan respuesta en el corpus lo afirma quien pone los juicios, no un script. Con 40 y 20 consultas, los intervalos son anchos: es un indicio, no un umbral definitivo.
 <!-- results:end -->
 
+</details>
+
 ## Probar la API
 
 ```bash
@@ -370,6 +449,9 @@ Cada resultado trae `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, un `
 
 ### Chunking
 
+<details>
+<summary>Mostrar detalles</summary>
+
 - **Alcance:** solo artículos (248: AIFMD 71, DORA 64, AI Act 113). Considerandos y anexos quedan fuera.
 - **Por artículo:** un chunk por artículo, con cabecera `Article N. Título`.
 - **Por ventanas:** 200 palabras del cuerpo con solape de 40, sin cruzar el límite de un artículo; si la cola nueva
@@ -380,7 +462,12 @@ Cada resultado trae `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, un `
 - **Evaluación:** los juicios de relevancia se dan por artículo (`celex` + `article`), de modo que ambas estrategias se
   miden con los mismos juicios.
 
+</details>
+
 ### Embeddings
+
+<details>
+<summary>Mostrar detalles</summary>
 
 - **Modelo:** `BAAI/bge-small-en-v1.5` (MIT, 384 dimensiones, ventana de 512 tokens) fijado por hash de commit
   (`5c38ec7c…`). Elegido por criterios decididos antes de medir (ventana, licencia, tamaño, riesgo de
@@ -395,7 +482,12 @@ Cada resultado trae `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, un `
 - Los vectores pueden diferir en el último decimal entre plataformas; por eso `--verify` exige coseno >= 0,9999
   y no igualdad bit a bit.
 
+</details>
+
 ### Sistemas de recuperación sobre Postgres
+
+<details>
+<summary>Mostrar detalles</summary>
 
 - **FTS** (`scripts/fts.py`): configuración `'english'`; consulta = OR de los términos (por defecto Postgres
   exige todos); ranking `ts_rank_cd` con valores por defecto; desempate por `chunk_id`. Decisiones fijadas antes
@@ -415,7 +507,12 @@ Cada resultado trae `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, un `
   cargados en la base de datos no coinciden con `data/chunks/` (hay que repetir `load-db`).
 - Los tests de base de datos usan un esquema temporal aislado y se saltan solos si no hay Postgres (en la CI fallan).
 
+</details>
+
 ### Golden set y método de evaluación
+
+<details>
+<summary>Mostrar detalles</summary>
 
 - `data/golden/queries.jsonl`: consultas (`query_id`, `type`, `theme`, `query`). Tipos: `paraphrase`,
   `exact_term` y `multi_article`. Las consultas están en inglés, como el corpus.
@@ -457,7 +554,12 @@ Ejemplo hecho a mano (juicios A=3, B=2, C=1; ranking X, B, A, Y, C con X e Y irr
 Recall@1 = 0, Recall@2 = 0,5, Recall@3 = 1, MRR = 0,5 y nDCG@5 = 0,6612
 (DCG = 2/log2(3) + 3/log2(4) + 1/log2(6) = 3,1487; ideal A, B, C = 4,7619).
 
+</details>
+
 ### Índices aproximados: HNSW frente a IVFFlat
+
+<details>
+<summary>Mostrar detalles</summary>
 
 `python cli.py bench-index` mide recall frente a la **búsqueda exacta de Postgres** (la referencia) y latencia, con
 parámetros fijados antes de medir: HNSW `m=16`, `ef_construction=64` y barrido de `ef_search`; IVFFlat con
@@ -489,7 +591,12 @@ parámetros fijados antes de medir: HNSW `m=16`, `ef_construction=64` y barrido 
 - **Latencia:** medida extremo a extremo desde Python (incluye serializar el vector de 384 números), con
   `shared_buffers` de 128 MB y el contenedor compartiendo CPU con otros procesos de la máquina.
 
+</details>
+
 ### Aislamiento multi-inquilino (RLS)
+
+<details>
+<summary>Mostrar detalles</summary>
 
 Modelo: el corpus legislativo es público y no pertenece a nadie; cada inquilino puede tener además **documentos
 privados sintéticos** (`tenant_id`). `NULL` en `tenant_id` es el corpus público. Todos los datos de prueba son
@@ -529,7 +636,12 @@ Limitaciones de esta implementación, a tener en cuenta:
   cambiarlo. La defensa es usar siempre consultas parametrizadas; no se cubre aquí.
 - Si el propietario no fuera superusuario, `FORCE` le aplicaría las políticas y la carga necesitaría `BYPASSRLS`.
 
+</details>
+
 ### Regression gate
+
+<details>
+<summary>Mostrar detalles</summary>
 
 `python cli.py gate` evalúa el sistema principal (**híbrido FTS + denso con RRF k=60, búsqueda exacta**) sobre el
 golden set congelado y falla si **Recall@10 o nDCG@10**, con chunking por artículo o por ventanas, caen bajo los
@@ -557,7 +669,12 @@ umbrales de `data/gate/thresholds.json`. La CI lo ejecuta, junto con los tests d
 - **Límites:** protege el corpus y el golden set actuales; no detecta mejoras ni regresiones menores que el margen, y
   no sustituye a `evaluate` y `compare` para decidir entre sistemas.
 
+</details>
+
 ### Integración continua (GitHub Actions)
+
+<details>
+<summary>Mostrar detalles</summary>
 
 `.github/workflows/ci.yml` se ejecuta en cada `push` a `main` y en cada `pull request`, con dos trabajos independientes:
 
@@ -583,6 +700,8 @@ umbrales de `data/gate/thresholds.json`. La CI lo ejecuta, junto con los tests d
   arquitectura del runner ni los valores de las métricas medidos allí.
 - **Fuera de la CI:** `download-corpus` (comprobar el hash contra EUR-Lex) no se ejecuta en cada commit, para no
   depender de la disponibilidad de EUR-Lex.
+
+</details>
 
 ## Desarrollo
 
