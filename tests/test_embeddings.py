@@ -39,6 +39,7 @@ def test_instruction_only_on_queries():
     assert emb.texts_for("queries", [{"query": "what?"}]) == [QUERY_INSTRUCTION + "what?"]
     assert emb.texts_for("chunks_article", [{"text": "Article 1. T\nbody"}]) == ["Article 1. T\nbody"]
     assert emb.texts_for("chunks_window", [{"text": "w"}]) == ["w"]
+    assert emb.texts_for("abstention_queries", [{"query": "pizza?"}]) == [QUERY_INSTRUCTION + "pizza?"]  # también las consultas sin respuesta
 
 
 def test_encode_requests_normalized_float32_vectors():
@@ -105,12 +106,39 @@ def test_verify_passes_for_same_model_and_fails_for_a_different_one(workspace):
 
 # ---------- con los embeddings versionados (no necesitan el modelo) ----------
 
+def test_build_only_adds_a_source_and_leaves_the_other_entries_and_files_untouched(workspace):
+    out_dir, sources = workspace
+    emb.build(FakeModel(), out_dir, sources)
+    before_manifest = json.loads((out_dir / emb.MANIFEST_NAME).read_text())
+    before_files = {p.name: p.read_bytes() for p in out_dir.glob("*.npy")}
+    extra = out_dir.parent / "extra.jsonl"
+    extra.write_text(json.dumps({"query_id": "n001", "group": "off_topic", "query": "pizza?"}) + "\n", encoding="utf-8")
+    sources = sources | {"abstention_queries": extra}
+    manifest = emb.build(FakeModel(salt="otra plataforma"), out_dir, sources, only=["abstention_queries"])  # un modelo «distinto»: no debe tocar lo anterior
+    assert set(manifest["files"]) == set(before_manifest["files"]) | {"abstention_queries"}
+    for name, entry in before_manifest["files"].items():
+        assert manifest["files"][name] == entry and (out_dir / entry["file"]).read_bytes() == before_files[entry["file"]]
+    assert manifest["files"]["abstention_queries"]["ids"] == ["n001"] and "libraries" in manifest["files"]["abstention_queries"]
+    ids, matrix = emb.load_embeddings("abstention_queries", out_dir, sources)
+    assert ids == ["n001"] and matrix.shape == (1, DIM)
+
+
+def test_build_only_refuses_unknown_sources_and_mixing_with_other_model_revisions(workspace, monkeypatch):
+    out_dir, sources = workspace
+    emb.build(FakeModel(), out_dir, sources)
+    with pytest.raises(RuntimeError, match="desconocida"):
+        emb.build(FakeModel(), out_dir, sources, only=["no_existe"])
+    monkeypatch.setattr(emb, "REVISION", "otra-revision")
+    with pytest.raises(RuntimeError, match="no se pueden mezclar"):
+        emb.build(FakeModel(), out_dir, sources, only=["queries"])
+
+
 committed = pytest.mark.skipif(not (emb.EMBEDDINGS_DIR / emb.MANIFEST_NAME).exists(), reason="embeddings no calculados (python cli.py embed)")
 
 
 @committed
 def test_committed_embeddings_are_consistent_with_current_sources():
-    expected = {"chunks_article": 248, "chunks_window": 719, "queries": 40}
+    expected = {"chunks_article": 248, "chunks_window": 719, "queries": 40, "abstention_queries": 20}
     for name, n in expected.items():
         ids, matrix = emb.load_embeddings(name)
         assert len(ids) == n and matrix.shape == (n, DIM)

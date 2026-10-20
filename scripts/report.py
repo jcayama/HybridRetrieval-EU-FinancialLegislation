@@ -25,6 +25,8 @@ DEFAULT_LANG = "en"
 README_FILES = {"en": ROOT / "README.md", "es": ROOT / "README.es.md"}
 RESULTS_DIR = ROOT / "results"
 ERRORS_FILE = RESULTS_DIR / "error_analysis.json"
+ABSTENTION_FILE = RESULTS_DIR / "abstention.json"
+ABSTENTION_TABLE_THRESHOLDS = (0.5, 0.54, 0.58, 0.62, 0.66, 0.7, 0.74, 0.78)  # filas de la rejilla de abstention.THRESHOLDS que se muestran
 START, END = "<!-- results:start -->", "<!-- results:end -->"
 TLDR_START, TLDR_END = "<!-- tldr:start -->", "<!-- tldr:end -->"
 
@@ -133,6 +135,42 @@ PACKS = {
             ),
             "Son pocas consultas y un solo anotador: describen estos casos, no permiten generalizar.",
         ],
+        "abst_title": "#### Abstención: coseno del mejor chunk (golden set frente a consultas sin respuesta)",
+        "abst_intro": (
+            "¿Podría un umbral sobre el coseno del mejor chunk hacer que el recuperador se abstenga ante consultas sin respuesta? "
+            "Se compara el coseno de las {n_pos} consultas del golden set (con respuesta) con el de {n_neg} consultas sin respuesta "
+            "({n_off} fuera de tema y {n_near} «casi del dominio», fuera del corpus), puestas por quien pone los juicios, en "
+            "`data/abstention/` (congeladas con hash). "
+            "Se calcula con `python cli.py abstention`; "
+            "la API aplica el umbral propuesto con ventanas (`data/abstention/threshold.json`, redondeado hacia abajo a milésimas) en `dense` e `hybrid`, "
+            "solo para descartar consultas claramente ajenas; con artículos no se abstiene, porque ahí el umbral rechaza consultas legítimas."
+        ),
+        "abst_group": {"golden": "Golden set (con respuesta)", "off_topic": "Sin respuesta, fuera de tema", "near_domain": "Sin respuesta, casi del dominio"},
+        "abst_summary_header": ["Chunking", "Grupo", "Consultas", "Coseno mínimo", "Mediana", "Máximo"],
+        "abst_auc_header": ["Chunking", "Golden set frente a…", "AUC [IC 95 %]"],
+        "abst_auc_group": {"all": "todas las consultas sin respuesta", "off_topic": "solo fuera de tema", "near_domain": "solo casi del dominio"},
+        "abst_table_header": ["Chunking", "Umbral", "Golden set conservado", "Fuera de tema rechazadas", "Casi del dominio rechazadas"],
+        "abst_proposal": (
+            "Con chunking por {chunk}, el umbral que conserva al menos el {pct} % del golden set (regla fijada antes de calcular) es **{t}**: conserva "
+            "{kept} de {total} consultas, rechaza {off} de {n_off} fuera de tema y {near} de {n_near} casi del dominio. Consultas del golden set que "
+            "rechazaría: {rejected}."
+        ),
+        "abst_proposal_none": "ninguna",
+        "abst_notes": [
+            (
+                "El AUC es la probabilidad de que una consulta con respuesta tenga más coseno que una sin respuesta (0,5 = no se distinguen; 1 = se separan "
+                "del todo). Si los grupos no se solapan en la muestra, el bootstrap da un IC degenerado en 1,000: no mide incertidumbre real, solo que en "
+                "estas consultas no hay solapamiento."
+            ),
+            (
+                "Las consultas del golden set se escribieron «desde el artículo», así que su coseno es más alto que el de un usuario real; y el umbral se "
+                "calibra con las mismas consultas con las que se evalúa. Ambas cosas lo hacen optimista."
+            ),
+            (
+                "Que las consultas sin respuesta no tengan respuesta en el corpus lo afirma quien pone los juicios, no un script. Con {n_pos} y {n_neg} "
+                "consultas, los intervalos son anchos: es un indicio, no un umbral definitivo."
+            ),
+        ],
         "tldr_best": "**Cifra global más alta de nDCG@10 entre los sistemas principales:** {system}, con {window} con ventanas ({article} con artículos), sobre {n} consultas.",
         "tldr_survivors": "**Las únicas comparaciones que sobreviven a la corrección por comparaciones múltiples:** {names}. Cualquier otra diferencia entre los sistemas principales no es detectable con {n} consultas.",
         "tldr_none": "**Ninguna diferencia entre los sistemas principales sobrevive a la corrección por comparaciones múltiples** con {n} consultas.",
@@ -209,6 +247,38 @@ PACKS = {
                 "judgment rather than a system error. Deciding that belongs to whoever sets the judgments."
             ),
             "Few queries and a single annotator: they describe these cases and do not allow generalizing.",
+        ],
+        "abst_title": "#### Abstention: cosine of the best chunk (golden set versus unanswerable queries)",
+        "abst_intro": (
+            "Could a threshold on the best chunk's cosine make the retriever abstain on queries with no answer? "
+            "The cosine of the {n_pos} golden-set queries (answerable) is compared with that of {n_neg} unanswerable queries "
+            "({n_off} off-topic and {n_near} \"near-domain\", outside the corpus), set by whoever sets the judgments, in "
+            "`data/abstention/` (frozen with a hash). "
+            "It is computed with `python cli.py abstention`; "
+            "the API applies the proposed threshold with windows (`data/abstention/threshold.json`, rounded down to thousandths) in `dense` and `hybrid`, "
+            "only to discard clearly unrelated queries; with articles it does not abstain, because there the threshold rejects legitimate queries."
+        ),
+        "abst_group": {"golden": "Golden set (answerable)", "off_topic": "Unanswerable, off-topic", "near_domain": "Unanswerable, near-domain"},
+        "abst_summary_header": ["Chunking", "Group", "Queries", "Minimum cosine", "Median", "Maximum"],
+        "abst_auc_header": ["Chunking", "Golden set versus…", "AUC [95% CI]"],
+        "abst_auc_group": {"all": "all unanswerable queries", "off_topic": "off-topic only", "near_domain": "near-domain only"},
+        "abst_table_header": ["Chunking", "Threshold", "Golden set kept", "Off-topic rejected", "Near-domain rejected"],
+        "abst_proposal": (
+            "With {chunk} chunking, the threshold that keeps at least {pct}% of the golden set (rule fixed before computing) is **{t}**: it keeps {kept} "
+            "of {total} queries, rejects {off} of {n_off} off-topic and {near} of {n_near} near-domain. Golden-set queries it would reject: {rejected}."
+        ),
+        "abst_proposal_none": "none",
+        "abst_notes": [
+            (
+                "The AUC is the probability that an answerable query has a higher cosine than an unanswerable one (0.5 = indistinguishable; 1 = fully "
+                "separated). If the groups do not overlap in the sample, the bootstrap gives a degenerate CI at 1.000: it does not measure real uncertainty, "
+                "only that these queries do not overlap."
+            ),
+            "The golden-set queries were written \"from the article\", so their cosine is higher than a real user's; and the threshold is calibrated on the same queries it is evaluated on. Both make it optimistic.",
+            (
+                "That the unanswerable queries have no answer in the corpus is stated by whoever sets the judgments, not by a script. With {n_pos} and "
+                "{n_neg} queries the intervals are wide: it is a hint, not a final threshold."
+            ),
         ],
         "tldr_best": "**Highest overall nDCG@10 among the main systems:** {system}, with {window} using windows ({article} using articles), over {n} queries.",
         "tldr_survivors": "**The only comparisons that survive the multiple-comparison correction:** {names}. Every other difference between the main systems is not detectable with {n} queries.",
@@ -432,8 +502,68 @@ def section_errors(lang: str = DEFAULT_LANG) -> str:
     return t["errors_title"] + "\n\n" + intro + "\n\n" + table(t["errors_header"], rows) + "\n\n" + notes
 
 
+def section_abstention(lang: str = DEFAULT_LANG) -> str:
+    t = PACKS[lang]
+    data = json.loads(ABSTENTION_FILE.read_text(encoding="utf-8"))
+    chunkings = data["chunkings"]
+    first = next(iter(chunkings.values()))
+    n_pos, n_neg = len(first["golden"]), len(first["abstention"])
+    n_off, n_near = (sum(1 for r in first["abstention"] if r["group"] == g) for g in ("off_topic", "near_domain"))
+    pct = fmt(data["method"]["retention"] * 100, 0, lang)
+    summary_rows, auc_rows, table_rows, proposals = [], [], [], []
+    for chunking, block in chunkings.items():
+        chunk = t["chunk"][chunking]
+        for group in ("golden", "off_topic", "near_domain"):
+            s = block["summary"][group]
+            count = n_pos if group == "golden" else n_off if group == "off_topic" else n_near
+            summary_rows.append([chunk, t["abst_group"][group], str(count), fmt(s["min"], 3, lang), fmt(s["median"], 3, lang), fmt(s["max"], 3, lang)])
+        for group in ("all", "off_topic", "near_domain"):
+            a = block["auc"][group]
+            auc_rows.append([chunk, t["abst_auc_group"][group], f"{fmt(a['value'], 3, lang)} {fmt_ci(a['ci_low'], a['ci_high'], lang=lang)}"])
+        for row in block["table"]:
+            if row["threshold"] in ABSTENTION_TABLE_THRESHOLDS:
+                table_rows.append(
+                    [
+                        chunk,
+                        fmt(row["threshold"], 2, lang),
+                        f"{row['golden_kept']}/{row['golden_total']}",
+                        f"{row['off_topic_rejected']}/{row['off_topic_total']}",
+                        f"{row['near_domain_rejected']}/{row['near_domain_total']}",
+                    ]
+                )
+        p = block["proposal"]
+        by_id = {r["query_id"]: r for r in block["golden"]}
+        rejected = "; ".join(f"{q} «{by_id[q]['query']}» ({fmt(by_id[q]['cosine'], 3, lang)})" for q in p["golden_rejected"]) or t["abst_proposal_none"]
+        proposals.append(
+            t["abst_proposal"].format(
+                chunk=chunk,
+                pct=pct,
+                t=fmt(p["threshold"], 3, lang),
+                kept=p["golden_kept"],
+                total=p["golden_total"],
+                off=p["rejected"]["off_topic"],
+                n_off=n_off,
+                near=p["rejected"]["near_domain"],
+                n_near=n_near,
+                rejected=rejected,
+            )
+        )
+    notes = "\n".join(f"- {n.format(n_pos=n_pos, n_neg=n_neg)}" for n in t["abst_notes"])
+    parts = [
+        t["abst_title"],
+        t["abst_intro"].format(n_pos=n_pos, n_neg=n_neg, n_off=n_off, n_near=n_near),
+        table(t["abst_summary_header"], summary_rows),
+        table(t["abst_auc_header"], auc_rows),
+        table(t["abst_table_header"], table_rows),
+        "\n\n".join(proposals),
+        notes,
+    ]
+    return "\n\n".join(parts)
+
+
 def render(results: dict[str, dict], types: dict[str, str], lang: str = DEFAULT_LANG) -> str:
-    return "\n\n".join([section_systems(results, lang), section_by_type(results, lang), section_comparisons(results, types, lang), section_gate(lang), section_indexes(lang), section_errors(lang)])
+    sections = [section_systems(results, lang), section_by_type(results, lang), section_comparisons(results, types, lang), section_gate(lang), section_indexes(lang)]
+    return "\n\n".join(sections + [section_errors(lang), section_abstention(lang)])
 
 
 # ---------- bloque «tldr» (cifras clave del resumen inicial) ----------

@@ -25,13 +25,19 @@ def tenants_enabled_from_env() -> bool:
     return os.getenv("API_ENABLE_TENANTS", "").strip().lower() in ("1", "true", "yes")
 
 
+def abstention_enabled_from_env() -> bool:
+    """Activa por defecto; API_ENABLE_ABSTENTION=false (o 0, no) la desactiva."""
+    load_dotenv(Path(__file__).parent / ".env")
+    return os.getenv("API_ENABLE_ABSTENTION", "").strip().lower() not in ("0", "false", "no")
+
+
 def create_app(service: RetrievalService | None = None) -> FastAPI:
     """Si no se inyecta un servicio (los tests lo hacen), se crea uno al arrancar y se intenta cargar el modelo."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         if service is None:
-            app.state.service = RetrievalService(enable_tenants=tenants_enabled_from_env())
+            app.state.service = RetrievalService(enable_tenants=tenants_enabled_from_env(), abstain=abstention_enabled_from_env())
             await asyncio.to_thread(app.state.service.start)  # el modelo se carga fuera del bucle de eventos
         yield
 

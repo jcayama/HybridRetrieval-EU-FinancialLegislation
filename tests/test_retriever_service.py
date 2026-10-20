@@ -61,8 +61,11 @@ def seed(schema, rows=ROWS):
             conn.execute("INSERT INTO load_info (strategy, chunks_sha256, n_chunks, embeddings_sha256) VALUES (%s, %s, 0, %s)", (strategy, sha, manifest[f"chunks_{strategy}"]["sha256"]))
 
 
-def service(schema, embedder=True, tenants=False):
-    return RetrievalService(schema=schema, embed_query=(lambda q: unit((0, 1))) if embedder else None, enable_tenants=tenants)
+def service(schema, embedder=True, tenants=False, vector=None, **kwargs):
+    """`thresholds` por defecto {}: sin abstención (que lea data/abstention/threshold.json haría depender estos tests de ese fichero)."""
+    vector = unit((0, 1)) if vector is None else vector
+    kwargs.setdefault("thresholds", {})
+    return RetrievalService(schema=schema, embed_query=(lambda q: vector) if embedder else None, enable_tenants=tenants, **kwargs)
 
 
 # ---------- FTS: no necesita modelo ----------
@@ -176,6 +179,77 @@ def test_passage_snippet_marks_only_the_cut_sides(body, fragment, expected):
     assert passage_snippet(body, fragment) == expected
 
 
+# ---------- abstención por coseno ----------
+
+ORTHOGONAL = unit((7, 1))  # coseno 0 con todos los chunks de ROWS
+DIAGONAL = unit((0, 1), (7, 1))  # coseno 1/√2 ≈ 0,7071 con los chunks cuyo vector es unit((0, 1))
+
+
+@pytest.mark.parametrize("mode", ["dense", "hybrid"])
+def test_it_abstains_when_the_best_cosine_is_below_the_threshold(schema, mode):
+    seed(schema)
+    svc = service(schema, vector=ORTHOGONAL, thresholds={"window": 0.5, "article": 0.5})
+    outcome = svc.search_outcome("alpha", mode=mode, chunking="window")
+    assert outcome.abstained and outcome.hits == [] and outcome.best_cosine == pytest.approx(0.0, abs=1e-6)
+    assert svc.search("alpha", mode=mode, chunking="window") == []  # `search` también devuelve la lista vacía
+
+
+@pytest.mark.parametrize("mode", ["dense", "hybrid"])
+def test_it_answers_when_the_best_cosine_reaches_the_threshold(schema, mode):
+    seed(schema)
+    below, above = {"window": 0.70, "article": 0.70}, {"window": 0.72, "article": 0.72}  # el mejor coseno es ≈ 0,7071
+    assert not service(schema, vector=DIAGONAL, thresholds=below).search_outcome("alpha", mode=mode, chunking="window").abstained
+    assert service(schema, vector=DIAGONAL, thresholds=above).search_outcome("alpha", mode=mode, chunking="window").abstained
+    outcome = service(schema, vector=DIAGONAL, thresholds=below).search_outcome("alpha", mode=mode, chunking="window")
+    assert outcome.hits and outcome.best_cosine == pytest.approx(1 / 2**0.5, abs=1e-6)
+
+
+@pytest.mark.parametrize("mode", ["dense", "hybrid"])
+def test_a_cosine_exactly_at_the_threshold_is_kept(schema, mode):
+    seed(schema)
+    cosine = service(schema, vector=DIAGONAL).search_outcome("alpha", mode=mode, chunking="window").best_cosine
+    at = service(schema, vector=DIAGONAL, thresholds={"window": cosine, "article": cosine})
+    assert not at.search_outcome("alpha", mode=mode, chunking="window").abstained  # >= umbral se conserva, como en la calibración
+
+
+def test_each_chunking_uses_its_own_threshold(schema):
+    seed(schema)
+    svc = service(schema, vector=DIAGONAL, thresholds={"window": 0.99, "article": 0.1})
+    assert svc.search_outcome("alpha", mode="dense", chunking="window").abstained
+    assert not svc.search_outcome("alpha", mode="dense", chunking="article").abstained
+
+
+def test_fts_never_abstains_and_needs_no_model(schema):
+    seed(schema)
+    outcome = service(schema, embedder=False, thresholds={"window": 0.99, "article": 0.99}).search_outcome("alpha beta", mode="fts", chunking="window")
+    assert outcome.hits and not outcome.abstained and outcome.best_cosine is None
+
+
+def test_without_thresholds_or_with_abstention_off_it_always_answers(schema):
+    seed(schema)
+    assert service(schema, vector=ORTHOGONAL, thresholds={}).search_outcome("alpha", mode="dense").hits
+    assert service(schema, vector=ORTHOGONAL, abstain=False, thresholds={"window": 0.9, "article": 0.9}).search_outcome("alpha", mode="dense").hits
+
+
+def test_status_reports_whether_abstention_is_active(schema):
+    assert service(schema, thresholds={"window": 0.5, "article": 0.5}).status()["abstention"] is True
+    assert service(schema, thresholds={}).status()["abstention"] is False
+    assert service(schema, abstain=False, thresholds={"window": 0.5, "article": 0.5}).status()["abstention"] is False
+
+
+def test_the_versioned_thresholds_only_abstain_with_windows():
+    from scripts import abstention
+
+    svc = RetrievalService()
+    assert set(svc.thresholds) == {"window"} and svc.thresholds == abstention.load_thresholds()  # con article no hay umbral: nunca se abstiene
+
+
+def test_the_default_thresholds_come_from_the_versioned_file():
+    from scripts import abstention
+
+    assert RetrievalService().thresholds == abstention.load_thresholds() and RetrievalService(abstain=False).thresholds == {}
+
+
 # ---------- denso e híbrido: necesitan el modelo ----------
 
 
@@ -227,8 +301,8 @@ def test_dense_and_hybrid_also_respect_tenants(schema):
 
 def test_status_reports_database_model_and_tenants(schema):
     seed(schema)
-    assert service(schema, embedder=False).status() == {"database": True, "model": False, "tenants_enabled": False}
-    assert service(schema, tenants=True).status() == {"database": True, "model": True, "tenants_enabled": True}
+    assert service(schema, embedder=False).status() == {"database": True, "model": False, "tenants_enabled": False, "abstention": False}
+    assert service(schema, tenants=True).status() == {"database": True, "model": True, "tenants_enabled": True, "abstention": False}
 
 
 def test_an_empty_database_is_reported_as_not_ready(schema):

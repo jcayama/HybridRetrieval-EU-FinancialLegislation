@@ -16,7 +16,7 @@ from scripts.golden import QUERIES_FILE, load_jsonl
 from scripts.metrics import Article
 
 SEARCH_SQL = """
-SELECT chunk_id, celex, article
+SELECT chunk_id, celex, article, 1 - (embedding <=> %(vector)s::vector) AS cosine
 FROM chunks
 WHERE strategy = %(strategy)s AND embedding IS NOT NULL {scope}
 ORDER BY embedding <=> %(vector)s::vector, chunk_id
@@ -69,13 +69,17 @@ class DenseIndex:
 
     def search_chunks(self, query: str, depth: int) -> list[tuple[str, Article]]:
         """Los `depth` mejores chunks como (chunk_id, artículo), de mejor a peor."""
+        return [(chunk_id, article) for chunk_id, article, _ in self.search_scored(query, depth)]
+
+    def search_scored(self, query: str, depth: int) -> list[tuple[str, Article, float]]:
+        """Como `search_chunks`, con el coseno (1 − distancia) de cada chunk. El orden no depende del coseno devuelto."""
         vector = db.to_vector_literal(self.embed_query(query))
         with db.connect(self.schema) as conn:
             if self.tenant is not None:
                 db.tenant_transaction(conn, self.tenant)  # RLS decide qué filas se ven
             sql = SEARCH_SQL.format(scope="" if self.tenant is not None else PUBLIC_ONLY)
             rows = conn.execute(sql, {"strategy": self.chunking, "vector": vector, "depth": depth}).fetchall()
-        return [(chunk_id, (celex, article)) for chunk_id, celex, article in rows]
+        return [(chunk_id, (celex, article), float(cosine)) for chunk_id, celex, article, cosine in rows]
 
     def search(self, query: str, depth: int) -> list[Article]:
         return [article for _, article in self.search_chunks(query, depth)]

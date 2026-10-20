@@ -136,3 +136,14 @@ def test_stale_database_is_detected(schema):
     load(schema, "article", [chunk("article", 1)], {"C:art_1:article": unit((0, 1))}, emb_sha="otro-hash")
     with pytest.raises(RuntimeError, match="embeddings"):
         index(schema, "article", unit((0, 1)))
+
+
+def test_search_scored_returns_the_cosine_in_the_same_order_as_search_chunks(schema):
+    near, far = unit((0, 1), (1, 1)), unit((1, 1))  # coseno con la consulta (0,1): 1/√2 y 0
+    chunks = [chunk("article", 1), chunk("article", 2), chunk("article", 3)]
+    load(schema, "article", chunks, {"C:art_1:article": unit((0, 1)), "C:art_2:article": near, "C:art_3:article": far})
+    idx = index(schema, "article", unit((0, 1)))
+    scored = idx.search_scored("q", 10)
+    assert [(c, a) for c, a, _ in scored] == idx.search_chunks("q", 10)  # mismo ranking
+    assert [cosine for *_, cosine in scored] == pytest.approx([1.0, 1 / np.sqrt(2), 0.0], abs=1e-6)  # el coseno, a mano
+    assert [c for *_, c in scored] == sorted((c for *_, c in scored), reverse=True)  # decreciente: el primero es el mejor

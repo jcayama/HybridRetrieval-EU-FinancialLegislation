@@ -1,0 +1,23 @@
+{
+  "calibrated_on": {
+    "abstention_sha256": {
+      "queries.jsonl": "d847db4792cabd45c00a8cfae6b2a3a3a6f5a0a8a775ecba2ed548096f85a992"
+    },
+    "embeddings_sha256": {
+      "abstention_queries": "86e045b3ac38f89c6593bc7144b545ead1a44214dd3c4e7d6d7957dad5296cbd",
+      "chunks_article": "730a7416154ea91f253b366c45655c099cc2a9b579efffffc9f150749f0234ff",
+      "chunks_window": "79595ecabaa91e3cfbc76f7a16381d161990737c401e96a3ebf719ab4566eb07",
+      "queries": "923f669e00fd65b70f7283ee69795e914aca0bb6916d79ffb8a7657a4ebefb59"
+    },
+    "golden_sha256": {
+      "qrels.jsonl": "8c8ded0eab3924607489e06ebff2a35a97665c22e9f4fe7088df27a9ac7552ef",
+      "queries.jsonl": "5935bc558d10f39b4e25c40556eae44150ac47cfbbbdbea109097ee1eb00e8fa"
+    }
+  },
+  "retention": 0.95,
+  "rule": "el coseno más alto que conserva al menos el 95% de las consultas del golden set, redondeado hacia abajo a milésimas",
+  "thresholds": {
+    "window": 0.609
+  },
+  "use": "Abstención de la API (solo con chunking=window): si el coseno del mejor chunk es menor que el umbral, no se devuelven resultados. Solo descarta consultas claramente ajenas al corpus."
+}

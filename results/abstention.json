@@ -1,0 +1,1711 @@
+{
+  "chunkings": {
+    "article": {
+      "abstention": [
+        {
+          "article": 59,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_59",
+          "cosine": 0.3482561603708234,
+          "group": "off_topic",
+          "query": "What is the best pizza recipe in Naples?",
+          "query_id": "n001"
+        },
+        {
+          "article": 10,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_10",
+          "cosine": 0.4443718658574878,
+          "group": "off_topic",
+          "query": "How do I change a flat tire on a bicycle?",
+          "query_id": "n002"
+        },
+        {
+          "article": 21,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_21",
+          "cosine": 0.43277115431175783,
+          "group": "off_topic",
+          "query": "What is the capital city of Australia?",
+          "query_id": "n003"
+        },
+        {
+          "article": 32,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_32",
+          "cosine": 0.47342100897902273,
+          "group": "off_topic",
+          "query": "Who won the football World Cup in 2014?",
+          "query_id": "n004"
+        },
+        {
+          "article": 99,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_99",
+          "cosine": 0.4253181561638031,
+          "group": "off_topic",
+          "query": "How many calories are in a banana?",
+          "query_id": "n005"
+        },
+        {
+          "article": 71,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_71",
+          "cosine": 0.41784416118070655,
+          "group": "off_topic",
+          "query": "What is the tallest mountain in South America?",
+          "query_id": "n006"
+        },
+        {
+          "article": 10,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_10",
+          "cosine": 0.5568455654062819,
+          "group": "off_topic",
+          "query": "How do vaccines train the immune system?",
+          "query_id": "n007"
+        },
+        {
+          "article": 4,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_4",
+          "cosine": 0.4939644049469709,
+          "group": "off_topic",
+          "query": "Which programming language should a beginner learn first?",
+          "query_id": "n008"
+        },
+        {
+          "article": 64,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_64",
+          "cosine": 0.5005406141281128,
+          "group": "off_topic",
+          "query": "What time does the sun set in Madrid in December?",
+          "query_id": "n009"
+        },
+        {
+          "article": 19,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_19",
+          "cosine": 0.4378801323246885,
+          "group": "off_topic",
+          "query": "How do I train a puppy to stay calm at night?",
+          "query_id": "n010"
+        },
+        {
+          "article": 21,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_21",
+          "cosine": 0.6802995395481873,
+          "group": "near_domain",
+          "query": "What capital ratios must a bank maintain under Basel III?",
+          "query_id": "n011"
+        },
+        {
+          "article": 43,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_43",
+          "cosine": 0.643005688280037,
+          "group": "near_domain",
+          "query": "What fees can a payment service provider charge for card payments?",
+          "query_id": "n012"
+        },
+        {
+          "article": 12,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_12",
+          "cosine": 0.701089417804549,
+          "group": "near_domain",
+          "query": "What are the best execution obligations for investment firms when handling client orders?",
+          "query_id": "n013"
+        },
+        {
+          "article": 28,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_28",
+          "cosine": 0.6832777654147841,
+          "group": "near_domain",
+          "query": "How must short selling positions be disclosed to regulators?",
+          "query_id": "n014"
+        },
+        {
+          "article": 24,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_24",
+          "cosine": 0.6211210715102522,
+          "group": "near_domain",
+          "query": "What counts as insider dealing and market manipulation?",
+          "query_id": "n015"
+        },
+        {
+          "article": 19,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_19",
+          "cosine": 0.6757949590682983,
+          "group": "near_domain",
+          "query": "When must a bank report a suspicious transaction for anti-money-laundering purposes?",
+          "query_id": "n016"
+        },
+        {
+          "article": 21,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_21",
+          "cosine": 0.6625762388019277,
+          "group": "near_domain",
+          "query": "What deposit amount is protected if a bank fails?",
+          "query_id": "n017"
+        },
+        {
+          "article": 25,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_25",
+          "cosine": 0.6523709297180176,
+          "group": "near_domain",
+          "query": "What are the requirements for issuing a crypto-asset white paper?",
+          "query_id": "n018"
+        },
+        {
+          "article": 9,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_9",
+          "cosine": 0.6652868787858847,
+          "group": "near_domain",
+          "query": "How do insurers calculate their solvency capital requirement?",
+          "query_id": "n019"
+        },
+        {
+          "article": 8,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_8",
+          "cosine": 0.6548432523199019,
+          "group": "near_domain",
+          "query": "What conditions apply to taking out a mortgage loan to buy a home?",
+          "query_id": "n020"
+        }
+      ],
+      "auc": {
+        "all": {
+          "ci_high": 0.94375,
+          "ci_low": 0.76875,
+          "value": 0.8675
+        },
+        "near_domain": {
+          "ci_high": 0.865,
+          "ci_low": 0.6,
+          "value": 0.74
+        },
+        "off_topic": {
+          "ci_high": 1.0,
+          "ci_low": 0.9775,
+          "value": 0.995
+        }
+      },
+      "golden": [
+        {
+          "article": 73,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_73",
+          "cosine": 0.6990400911521852,
+          "query": "How quickly must a company tell regulators after discovering that its automated system caused serious harm?",
+          "query_id": "q001",
+          "type": "paraphrase"
+        },
+        {
+          "article": 19,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_19",
+          "cosine": 0.7574796965742526,
+          "query": "voluntary notification of significant cyber threats",
+          "query_id": "q002",
+          "type": "exact_term"
+        },
+        {
+          "article": 10,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_10",
+          "cosine": 0.8282054169055586,
+          "query": "What steps must a financial firm follow from detecting an ICT incident to reporting it to the authority?",
+          "query_id": "q003",
+          "type": "multi_article"
+        },
+        {
+          "article": 30,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_30",
+          "cosine": 0.6810450744006006,
+          "query": "What must a bank write into its contract with a cloud provider?",
+          "query_id": "q004",
+          "type": "paraphrase"
+        },
+        {
+          "article": 34,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_34",
+          "cosine": 0.6951545476913452,
+          "query": "Lead Overseer",
+          "query_id": "q005",
+          "type": "exact_term"
+        },
+        {
+          "article": 8,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_8",
+          "cosine": 0.7041013240814209,
+          "query": "How are the technology suppliers that financial firms depend on most identified and supervised?",
+          "query_id": "q006",
+          "type": "multi_article"
+        },
+        {
+          "article": 10,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_10",
+          "cosine": 0.8228064285036084,
+          "query": "Rules on the quality of data used to train automated systems that make high-stakes decisions",
+          "query_id": "q007",
+          "type": "paraphrase"
+        },
+        {
+          "article": 14,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_14",
+          "cosine": 0.8237185478210449,
+          "query": "What must be documented, logged and overseen by humans for a high-risk AI system?",
+          "query_id": "q008",
+          "type": "multi_article"
+        },
+        {
+          "article": 26,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_26",
+          "cosine": 0.6672167777031474,
+          "query": "TLPT",
+          "query_id": "q009",
+          "type": "exact_term"
+        },
+        {
+          "article": 24,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_24",
+          "cosine": 0.7143055541151152,
+          "query": "How often must a financial firm test whether its IT systems can withstand attacks, and who may run those tests?",
+          "query_id": "q010",
+          "type": "paraphrase"
+        },
+        {
+          "article": 9,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_9",
+          "cosine": 0.70265034405585,
+          "query": "How much money must a fund manager have set aside before it can start operating?",
+          "query_id": "q011",
+          "type": "paraphrase"
+        },
+        {
+          "article": 19,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_19",
+          "cosine": 0.658516526222229,
+          "query": "EUR 125 000",
+          "query_id": "q012",
+          "type": "exact_term"
+        },
+        {
+          "article": 11,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_11",
+          "cosine": 0.7245272726384077,
+          "query": "What must a manager submit to be authorised, and when can that authorisation be refused or withdrawn?",
+          "query_id": "q013",
+          "type": "multi_article"
+        },
+        {
+          "article": 23,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_23",
+          "cosine": 0.6997437835045168,
+          "query": "Who keeps the assets of an investment fund safe, and what are they liable for?",
+          "query_id": "q014",
+          "type": "paraphrase"
+        },
+        {
+          "article": 2,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_2",
+          "cosine": 0.6058429353424388,
+          "query": "prime broker",
+          "query_id": "q015",
+          "type": "exact_term"
+        },
+        {
+          "article": 19,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_19",
+          "cosine": 0.7348662930886396,
+          "query": "How must the value of a fund's assets be determined, and who is responsible for checking it?",
+          "query_id": "q016",
+          "type": "multi_article"
+        },
+        {
+          "article": 13,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_13",
+          "cosine": 0.6674470503659826,
+          "query": "Are managers' pay packages restricted to discourage excessive risk taking?",
+          "query_id": "q017",
+          "type": "paraphrase"
+        },
+        {
+          "article": 25,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_25",
+          "cosine": 0.6097945803526305,
+          "query": "stress tests",
+          "query_id": "q018",
+          "type": "exact_term"
+        },
+        {
+          "article": 16,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_16",
+          "cosine": 0.7754373684264811,
+          "query": "What risk and liquidity management safeguards must a fund manager have in place?",
+          "query_id": "q019",
+          "type": "multi_article"
+        },
+        {
+          "article": 43,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_43",
+          "cosine": 0.7202854919263441,
+          "query": "Can a manager based outside the EU sell its funds to investors in several member states?",
+          "query_id": "q020",
+          "type": "paraphrase"
+        },
+        {
+          "article": 58,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_58",
+          "cosine": 0.5402812039684541,
+          "query": "letter-box",
+          "query_id": "q021",
+          "type": "exact_term"
+        },
+        {
+          "article": 43,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_43",
+          "cosine": 0.6879485845565796,
+          "query": "Under what conditions can a fund be offered to retail investors compared with professional investors?",
+          "query_id": "q022",
+          "type": "multi_article"
+        },
+        {
+          "article": 28,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_28",
+          "cosine": 0.7316085914256752,
+          "query": "What must a fund disclose when it takes over a private company?",
+          "query_id": "q023",
+          "type": "paraphrase"
+        },
+        {
+          "article": 14,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_14",
+          "cosine": 0.5980792285156721,
+          "query": "carried interest",
+          "query_id": "q024",
+          "type": "exact_term"
+        },
+        {
+          "article": 20,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_20",
+          "cosine": 0.6906938509892504,
+          "query": "sub-delegation",
+          "query_id": "q025",
+          "type": "exact_term"
+        },
+        {
+          "article": 105,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_105",
+          "cosine": 0.7154859474011703,
+          "query": "Which uses of artificial intelligence are completely banned in the EU?",
+          "query_id": "q026",
+          "type": "paraphrase"
+        },
+        {
+          "article": 50,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_50",
+          "cosine": 0.6406209897254718,
+          "query": "Do people have to be told when they are dealing with a machine or looking at synthetic content?",
+          "query_id": "q027",
+          "type": "paraphrase"
+        },
+        {
+          "article": 101,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_101",
+          "cosine": 0.7680726785616484,
+          "query": "How large can the fines be for companies that break the AI rules?",
+          "query_id": "q028",
+          "type": "paraphrase"
+        },
+        {
+          "article": 111,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_111",
+          "cosine": 0.7358268060787448,
+          "query": "Can companies try out new AI systems under official supervision before placing them on the market?",
+          "query_id": "q029",
+          "type": "paraphrase"
+        },
+        {
+          "article": 19,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_19",
+          "cosine": 0.5891478796336876,
+          "query": "floating point operations",
+          "query_id": "q030",
+          "type": "exact_term"
+        },
+        {
+          "article": 60,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_60",
+          "cosine": 0.5177660563270978,
+          "query": "deep fake",
+          "query_id": "q031",
+          "type": "exact_term"
+        },
+        {
+          "article": 31,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_31",
+          "cosine": 0.7416261809579706,
+          "query": "notified body",
+          "query_id": "q032",
+          "type": "exact_term"
+        },
+        {
+          "article": 55,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_55",
+          "cosine": 0.8586830069204561,
+          "query": "What must providers of general-purpose AI models do, and what extra duties apply when the model poses systemic risk?",
+          "query_id": "q033",
+          "type": "multi_article"
+        },
+        {
+          "article": 28,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_28",
+          "cosine": 0.7577770578198751,
+          "query": "Do small firms have to meet the same ICT risk rules as large banks?",
+          "query_id": "q034",
+          "type": "paraphrase"
+        },
+        {
+          "article": 28,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_28",
+          "cosine": 0.7089073235447823,
+          "query": "What must a financial firm plan for if it has to stop using an ICT provider?",
+          "query_id": "q035",
+          "type": "paraphrase"
+        },
+        {
+          "article": 45,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_45",
+          "cosine": 0.6700150167924194,
+          "query": "register of information",
+          "query_id": "q036",
+          "type": "exact_term"
+        },
+        {
+          "article": 13,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_13",
+          "cosine": 0.5932409409737036,
+          "query": "exit strategies",
+          "query_id": "q037",
+          "type": "exact_term"
+        },
+        {
+          "article": 3,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_3",
+          "cosine": 0.7188341952759987,
+          "query": "legacy ICT",
+          "query_id": "q038",
+          "type": "exact_term"
+        },
+        {
+          "article": 12,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_12",
+          "cosine": 0.7957633970905367,
+          "query": "How must a financial entity protect, back up and recover its data and systems?",
+          "query_id": "q039",
+          "type": "multi_article"
+        },
+        {
+          "article": 5,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_5",
+          "cosine": 0.7728936672210693,
+          "query": "What governance responsibilities does a firm's senior management carry for ICT risk?",
+          "query_id": "q040",
+          "type": "multi_article"
+        }
+      ],
+      "proposal": {
+        "golden_kept": 38,
+        "golden_rejected": [
+          "q021",
+          "q031"
+        ],
+        "golden_total": 40,
+        "rejected": {
+          "near_domain": 0,
+          "off_topic": 10
+        },
+        "threshold": 0.5891478796336876
+      },
+      "summary": {
+        "golden": {
+          "max": 0.8586830069204561,
+          "median": 0.7065043238131016,
+          "min": 0.5177660563270978
+        },
+        "near_domain": {
+          "max": 0.701089417804549,
+          "median": 0.6639315587939062,
+          "min": 0.6211210715102522
+        },
+        "off_topic": {
+          "max": 0.5568455654062819,
+          "median": 0.44112599909108813,
+          "min": 0.3482561603708234
+        }
+      },
+      "table": [
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 1,
+          "off_topic_total": 10,
+          "threshold": 0.4
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 2,
+          "off_topic_total": 10,
+          "threshold": 0.42
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 5,
+          "off_topic_total": 10,
+          "threshold": 0.44
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 6,
+          "off_topic_total": 10,
+          "threshold": 0.46
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 7,
+          "off_topic_total": 10,
+          "threshold": 0.48
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 8,
+          "off_topic_total": 10,
+          "threshold": 0.5
+        },
+        {
+          "golden_kept": 39,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 9,
+          "off_topic_total": 10,
+          "threshold": 0.52
+        },
+        {
+          "golden_kept": 39,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 9,
+          "off_topic_total": 10,
+          "threshold": 0.54
+        },
+        {
+          "golden_kept": 38,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.56
+        },
+        {
+          "golden_kept": 38,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.58
+        },
+        {
+          "golden_kept": 35,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.6
+        },
+        {
+          "golden_kept": 33,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.62
+        },
+        {
+          "golden_kept": 33,
+          "golden_total": 40,
+          "near_domain_rejected": 1,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.64
+        },
+        {
+          "golden_kept": 31,
+          "golden_total": 40,
+          "near_domain_rejected": 4,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.66
+        },
+        {
+          "golden_kept": 28,
+          "golden_total": 40,
+          "near_domain_rejected": 7,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.68
+        },
+        {
+          "golden_kept": 22,
+          "golden_total": 40,
+          "near_domain_rejected": 9,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.7
+        },
+        {
+          "golden_kept": 16,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.72
+        },
+        {
+          "golden_kept": 11,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.74
+        },
+        {
+          "golden_kept": 8,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.76
+        },
+        {
+          "golden_kept": 5,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.78
+        },
+        {
+          "golden_kept": 4,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.8
+        },
+        {
+          "golden_kept": 4,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.82
+        },
+        {
+          "golden_kept": 1,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.84
+        },
+        {
+          "golden_kept": 0,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.86
+        },
+        {
+          "golden_kept": 0,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.88
+        },
+        {
+          "golden_kept": 0,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.9
+        }
+      ]
+    },
+    "window": {
+      "abstention": [
+        {
+          "article": 59,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_59:w200:0",
+          "cosine": 0.3482561603708234,
+          "group": "off_topic",
+          "query": "What is the best pizza recipe in Naples?",
+          "query_id": "n001"
+        },
+        {
+          "article": 10,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_10:w200:0",
+          "cosine": 0.4443718658574878,
+          "group": "off_topic",
+          "query": "How do I change a flat tire on a bicycle?",
+          "query_id": "n002"
+        },
+        {
+          "article": 4,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_4:w200:12",
+          "cosine": 0.44429096911603483,
+          "group": "off_topic",
+          "query": "What is the capital city of Australia?",
+          "query_id": "n003"
+        },
+        {
+          "article": 32,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_32:w200:2",
+          "cosine": 0.48312580786635784,
+          "group": "off_topic",
+          "query": "Who won the football World Cup in 2014?",
+          "query_id": "n004"
+        },
+        {
+          "article": 99,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_99:w200:0",
+          "cosine": 0.41768748058751415,
+          "group": "off_topic",
+          "query": "How many calories are in a banana?",
+          "query_id": "n005"
+        },
+        {
+          "article": 71,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_71:w200:0",
+          "cosine": 0.41784416118070655,
+          "group": "off_topic",
+          "query": "What is the tallest mountain in South America?",
+          "query_id": "n006"
+        },
+        {
+          "article": 50,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_50:w200:0",
+          "cosine": 0.5489597531033014,
+          "group": "off_topic",
+          "query": "How do vaccines train the immune system?",
+          "query_id": "n007"
+        },
+        {
+          "article": 6,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_6:w200:1",
+          "cosine": 0.5045977530123151,
+          "group": "off_topic",
+          "query": "Which programming language should a beginner learn first?",
+          "query_id": "n008"
+        },
+        {
+          "article": 64,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_64:w200:0",
+          "cosine": 0.5005406141281128,
+          "group": "off_topic",
+          "query": "What time does the sun set in Madrid in December?",
+          "query_id": "n009"
+        },
+        {
+          "article": 19,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_19:w200:0",
+          "cosine": 0.4378801323246885,
+          "group": "off_topic",
+          "query": "How do I train a puppy to stay calm at night?",
+          "query_id": "n010"
+        },
+        {
+          "article": 21,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_21:w200:12",
+          "cosine": 0.6887109875679016,
+          "group": "near_domain",
+          "query": "What capital ratios must a bank maintain under Basel III?",
+          "query_id": "n011"
+        },
+        {
+          "article": 43,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_43:w200:0",
+          "cosine": 0.643005688280037,
+          "group": "near_domain",
+          "query": "What fees can a payment service provider charge for card payments?",
+          "query_id": "n012"
+        },
+        {
+          "article": 6,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_6:w200:2",
+          "cosine": 0.6807035588379432,
+          "group": "near_domain",
+          "query": "What are the best execution obligations for investment firms when handling client orders?",
+          "query_id": "n013"
+        },
+        {
+          "article": 23,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_23:w200:4",
+          "cosine": 0.7005661486904444,
+          "group": "near_domain",
+          "query": "How must short selling positions be disclosed to regulators?",
+          "query_id": "n014"
+        },
+        {
+          "article": 74,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_74:w200:2",
+          "cosine": 0.6111195915270106,
+          "group": "near_domain",
+          "query": "What counts as insider dealing and market manipulation?",
+          "query_id": "n015"
+        },
+        {
+          "article": 19,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_19:w200:0",
+          "cosine": 0.6775017976760864,
+          "group": "near_domain",
+          "query": "When must a bank report a suspicious transaction for anti-money-laundering purposes?",
+          "query_id": "n016"
+        },
+        {
+          "article": 21,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_21:w200:15",
+          "cosine": 0.7115375571526565,
+          "group": "near_domain",
+          "query": "What deposit amount is protected if a bank fails?",
+          "query_id": "n017"
+        },
+        {
+          "article": 3,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_3:w200:11",
+          "cosine": 0.6708770394325256,
+          "group": "near_domain",
+          "query": "What are the requirements for issuing a crypto-asset white paper?",
+          "query_id": "n018"
+        },
+        {
+          "article": 9,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_9:w200:2",
+          "cosine": 0.6979656039455893,
+          "group": "near_domain",
+          "query": "How do insurers calculate their solvency capital requirement?",
+          "query_id": "n019"
+        },
+        {
+          "article": 6,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_6:w200:2",
+          "cosine": 0.6525333341916402,
+          "group": "near_domain",
+          "query": "What conditions apply to taking out a mortgage loan to buy a home?",
+          "query_id": "n020"
+        }
+      ],
+      "auc": {
+        "all": {
+          "ci_high": 0.94875,
+          "ci_low": 0.77875,
+          "value": 0.87625
+        },
+        "near_domain": {
+          "ci_high": 0.8725,
+          "ci_low": 0.6125,
+          "value": 0.7525
+        },
+        "off_topic": {
+          "ci_high": 1.0,
+          "ci_low": 1.0,
+          "value": 1.0
+        }
+      },
+      "golden": [
+        {
+          "article": 73,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_73:w200:0",
+          "cosine": 0.7176484633893703,
+          "query": "How quickly must a company tell regulators after discovering that its automated system caused serious harm?",
+          "query_id": "q001",
+          "type": "paraphrase"
+        },
+        {
+          "article": 19,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_19:w200:2",
+          "cosine": 0.7978701356881629,
+          "query": "voluntary notification of significant cyber threats",
+          "query_id": "q002",
+          "type": "exact_term"
+        },
+        {
+          "article": 10,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_10:w200:0",
+          "cosine": 0.8282054169055586,
+          "query": "What steps must a financial firm follow from detecting an ICT incident to reporting it to the authority?",
+          "query_id": "q003",
+          "type": "multi_article"
+        },
+        {
+          "article": 30,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_30:w200:0",
+          "cosine": 0.6995054662522409,
+          "query": "What must a bank write into its contract with a cloud provider?",
+          "query_id": "q004",
+          "type": "paraphrase"
+        },
+        {
+          "article": 35,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_35:w200:2",
+          "cosine": 0.7469871044158936,
+          "query": "Lead Overseer",
+          "query_id": "q005",
+          "type": "exact_term"
+        },
+        {
+          "article": 8,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_8:w200:1",
+          "cosine": 0.7074530473407501,
+          "query": "How are the technology suppliers that financial firms depend on most identified and supervised?",
+          "query_id": "q006",
+          "type": "multi_article"
+        },
+        {
+          "article": 10,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_10:w200:0",
+          "cosine": 0.8093912715082617,
+          "query": "Rules on the quality of data used to train automated systems that make high-stakes decisions",
+          "query_id": "q007",
+          "type": "paraphrase"
+        },
+        {
+          "article": 14,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_14:w200:0",
+          "cosine": 0.8259686827659607,
+          "query": "What must be documented, logged and overseen by humans for a high-risk AI system?",
+          "query_id": "q008",
+          "type": "multi_article"
+        },
+        {
+          "article": 26,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_26:w200:6",
+          "cosine": 0.6859092303568596,
+          "query": "TLPT",
+          "query_id": "q009",
+          "type": "exact_term"
+        },
+        {
+          "article": 24,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_24:w200:1",
+          "cosine": 0.7195870876312256,
+          "query": "How often must a financial firm test whether its IT systems can withstand attacks, and who may run those tests?",
+          "query_id": "q010",
+          "type": "paraphrase"
+        },
+        {
+          "article": 9,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_9:w200:0",
+          "cosine": 0.7153888514406186,
+          "query": "How much money must a fund manager have set aside before it can start operating?",
+          "query_id": "q011",
+          "type": "paraphrase"
+        },
+        {
+          "article": 99,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_99:w200:1",
+          "cosine": 0.6500875949859619,
+          "query": "EUR 125 000",
+          "query_id": "q012",
+          "type": "exact_term"
+        },
+        {
+          "article": 8,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_8:w200:2",
+          "cosine": 0.7484096438640582,
+          "query": "What must a manager submit to be authorised, and when can that authorisation be refused or withdrawn?",
+          "query_id": "q013",
+          "type": "multi_article"
+        },
+        {
+          "article": 9,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_9:w200:1",
+          "cosine": 0.7313109084818581,
+          "query": "Who keeps the assets of an investment fund safe, and what are they liable for?",
+          "query_id": "q014",
+          "type": "paraphrase"
+        },
+        {
+          "article": 21,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_21:w200:3",
+          "cosine": 0.6422345851519963,
+          "query": "prime broker",
+          "query_id": "q015",
+          "type": "exact_term"
+        },
+        {
+          "article": 19,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_19:w200:1",
+          "cosine": 0.7317480604798771,
+          "query": "How must the value of a fund's assets be determined, and who is responsible for checking it?",
+          "query_id": "q016",
+          "type": "multi_article"
+        },
+        {
+          "article": 13,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_13:w200:0",
+          "cosine": 0.6674470503659826,
+          "query": "Are managers' pay packages restricted to discourage excessive risk taking?",
+          "query_id": "q017",
+          "type": "paraphrase"
+        },
+        {
+          "article": 25,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_25:w200:0",
+          "cosine": 0.6097945803526305,
+          "query": "stress tests",
+          "query_id": "q018",
+          "type": "exact_term"
+        },
+        {
+          "article": 16,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_16:w200:0",
+          "cosine": 0.7754373684264811,
+          "query": "What risk and liquidity management safeguards must a fund manager have in place?",
+          "query_id": "q019",
+          "type": "multi_article"
+        },
+        {
+          "article": 43,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_43:w200:0",
+          "cosine": 0.7202854919263441,
+          "query": "Can a manager based outside the EU sell its funds to investors in several member states?",
+          "query_id": "q020",
+          "type": "paraphrase"
+        },
+        {
+          "article": 31,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_31:w200:3",
+          "cosine": 0.5555754237681122,
+          "query": "letter-box",
+          "query_id": "q021",
+          "type": "exact_term"
+        },
+        {
+          "article": 43,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_43:w200:0",
+          "cosine": 0.6879485845565796,
+          "query": "Under what conditions can a fund be offered to retail investors compared with professional investors?",
+          "query_id": "q022",
+          "type": "multi_article"
+        },
+        {
+          "article": 28,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_28:w200:2",
+          "cosine": 0.7303966283798218,
+          "query": "What must a fund disclose when it takes over a private company?",
+          "query_id": "q023",
+          "type": "paraphrase"
+        },
+        {
+          "article": 14,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_14:w200:2",
+          "cosine": 0.618813693523407,
+          "query": "carried interest",
+          "query_id": "q024",
+          "type": "exact_term"
+        },
+        {
+          "article": 20,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_20:w200:2",
+          "cosine": 0.7344196001041187,
+          "query": "sub-delegation",
+          "query_id": "q025",
+          "type": "exact_term"
+        },
+        {
+          "article": 105,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_105:w200:0",
+          "cosine": 0.7154859474011703,
+          "query": "Which uses of artificial intelligence are completely banned in the EU?",
+          "query_id": "q026",
+          "type": "paraphrase"
+        },
+        {
+          "article": 50,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_50:w200:2",
+          "cosine": 0.6752348139742139,
+          "query": "Do people have to be told when they are dealing with a machine or looking at synthetic content?",
+          "query_id": "q027",
+          "type": "paraphrase"
+        },
+        {
+          "article": 101,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_101:w200:0",
+          "cosine": 0.7656570216621758,
+          "query": "How large can the fines be for companies that break the AI rules?",
+          "query_id": "q028",
+          "type": "paraphrase"
+        },
+        {
+          "article": 111,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_111:w200:1",
+          "cosine": 0.7511916904931266,
+          "query": "Can companies try out new AI systems under official supervision before placing them on the market?",
+          "query_id": "q029",
+          "type": "paraphrase"
+        },
+        {
+          "article": 19,
+          "celex": "32011L0061",
+          "chunk_id": "32011L0061:art_19:w200:1",
+          "cosine": 0.6088687647737588,
+          "query": "floating point operations",
+          "query_id": "q030",
+          "type": "exact_term"
+        },
+        {
+          "article": 3,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_3:w200:13",
+          "cosine": 0.6281938996083856,
+          "query": "deep fake",
+          "query_id": "q031",
+          "type": "exact_term"
+        },
+        {
+          "article": 45,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_45:w200:0",
+          "cosine": 0.7394511920050145,
+          "query": "notified body",
+          "query_id": "q032",
+          "type": "exact_term"
+        },
+        {
+          "article": 51,
+          "celex": "32024R1689",
+          "chunk_id": "32024R1689:art_51:w200:0",
+          "cosine": 0.8450154250841826,
+          "query": "What must providers of general-purpose AI models do, and what extra duties apply when the model poses systemic risk?",
+          "query_id": "q033",
+          "type": "multi_article"
+        },
+        {
+          "article": 28,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_28:w200:0",
+          "cosine": 0.7583106016105772,
+          "query": "Do small firms have to meet the same ICT risk rules as large banks?",
+          "query_id": "q034",
+          "type": "paraphrase"
+        },
+        {
+          "article": 28,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_28:w200:6",
+          "cosine": 0.7437008176028255,
+          "query": "What must a financial firm plan for if it has to stop using an ICT provider?",
+          "query_id": "q035",
+          "type": "paraphrase"
+        },
+        {
+          "article": 28,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_28:w200:2",
+          "cosine": 0.6918055186503557,
+          "query": "register of information",
+          "query_id": "q036",
+          "type": "exact_term"
+        },
+        {
+          "article": 28,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_28:w200:5",
+          "cosine": 0.6666319966316223,
+          "query": "exit strategies",
+          "query_id": "q037",
+          "type": "exact_term"
+        },
+        {
+          "article": 3,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_3:w200:0",
+          "cosine": 0.7241090865005152,
+          "query": "legacy ICT",
+          "query_id": "q038",
+          "type": "exact_term"
+        },
+        {
+          "article": 12,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_12:w200:0",
+          "cosine": 0.8001629710197449,
+          "query": "How must a financial entity protect, back up and recover its data and systems?",
+          "query_id": "q039",
+          "type": "multi_article"
+        },
+        {
+          "article": 5,
+          "celex": "32022R2554",
+          "chunk_id": "32022R2554:art_5:w200:0",
+          "cosine": 0.7844523191452026,
+          "query": "What governance responsibilities does a firm's senior management carry for ICT risk?",
+          "query_id": "q040",
+          "type": "multi_article"
+        }
+      ],
+      "proposal": {
+        "golden_kept": 38,
+        "golden_rejected": [
+          "q021",
+          "q030"
+        ],
+        "golden_total": 40,
+        "rejected": {
+          "near_domain": 0,
+          "off_topic": 10
+        },
+        "threshold": 0.6097945803526305
+      },
+      "summary": {
+        "golden": {
+          "max": 0.8450154250841826,
+          "median": 0.7221972892134296,
+          "min": 0.5555754237681122
+        },
+        "near_domain": {
+          "max": 0.7115375571526565,
+          "median": 0.6791026782570149,
+          "min": 0.6111195915270106
+        },
+        "off_topic": {
+          "max": 0.5489597531033014,
+          "median": 0.4443314174867613,
+          "min": 0.3482561603708234
+        }
+      },
+      "table": [
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 1,
+          "off_topic_total": 10,
+          "threshold": 0.4
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 3,
+          "off_topic_total": 10,
+          "threshold": 0.42
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 4,
+          "off_topic_total": 10,
+          "threshold": 0.44
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 6,
+          "off_topic_total": 10,
+          "threshold": 0.46
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 6,
+          "off_topic_total": 10,
+          "threshold": 0.48
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 7,
+          "off_topic_total": 10,
+          "threshold": 0.5
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 9,
+          "off_topic_total": 10,
+          "threshold": 0.52
+        },
+        {
+          "golden_kept": 40,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 9,
+          "off_topic_total": 10,
+          "threshold": 0.54
+        },
+        {
+          "golden_kept": 39,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.56
+        },
+        {
+          "golden_kept": 39,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.58
+        },
+        {
+          "golden_kept": 39,
+          "golden_total": 40,
+          "near_domain_rejected": 0,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.6
+        },
+        {
+          "golden_kept": 36,
+          "golden_total": 40,
+          "near_domain_rejected": 1,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.62
+        },
+        {
+          "golden_kept": 35,
+          "golden_total": 40,
+          "near_domain_rejected": 1,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.64
+        },
+        {
+          "golden_kept": 33,
+          "golden_total": 40,
+          "near_domain_rejected": 3,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.66
+        },
+        {
+          "golden_kept": 30,
+          "golden_total": 40,
+          "near_domain_rejected": 5,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.68
+        },
+        {
+          "golden_kept": 26,
+          "golden_total": 40,
+          "near_domain_rejected": 8,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.7
+        },
+        {
+          "golden_kept": 21,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.72
+        },
+        {
+          "golden_kept": 14,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.74
+        },
+        {
+          "golden_kept": 9,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.76
+        },
+        {
+          "golden_kept": 7,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.78
+        },
+        {
+          "golden_kept": 5,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.8
+        },
+        {
+          "golden_kept": 3,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.82
+        },
+        {
+          "golden_kept": 1,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.84
+        },
+        {
+          "golden_kept": 0,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.86
+        },
+        {
+          "golden_kept": 0,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.88
+        },
+        {
+          "golden_kept": 0,
+          "golden_total": 40,
+          "near_domain_rejected": 10,
+          "near_domain_total": 10,
+          "off_topic_rejected": 10,
+          "off_topic_total": 10,
+          "threshold": 0.9
+        }
+      ]
+    }
+  },
+  "inputs": {
+    "abstention_sha256": {
+      "queries.jsonl": "d847db4792cabd45c00a8cfae6b2a3a3a6f5a0a8a775ecba2ed548096f85a992"
+    },
+    "embeddings_sha256": {
+      "abstention_queries": "86e045b3ac38f89c6593bc7144b545ead1a44214dd3c4e7d6d7957dad5296cbd",
+      "chunks_article": "730a7416154ea91f253b366c45655c099cc2a9b579efffffc9f150749f0234ff",
+      "chunks_window": "79595ecabaa91e3cfbc76f7a16381d161990737c401e96a3ebf719ab4566eb07",
+      "queries": "923f669e00fd65b70f7283ee69795e914aca0bb6916d79ffb8a7657a4ebefb59"
+    },
+    "golden_sha256": {
+      "qrels.jsonl": "8c8ded0eab3924607489e06ebff2a35a97665c22e9f4fe7088df27a9ac7552ef",
+      "queries.jsonl": "5935bc558d10f39b4e25c40556eae44150ac47cfbbbdbea109097ee1eb00e8fa"
+    }
+  },
+  "method": {
+    "n_resamples": 10000,
+    "retention": 0.95,
+    "score": "cosine of the best chunk (exact dense search)",
+    "seed": 0,
+    "thresholds": [
+      0.4,
+      0.42,
+      0.44,
+      0.46,
+      0.48,
+      0.5,
+      0.52,
+      0.54,
+      0.56,
+      0.58,
+      0.6,
+      0.62,
+      0.64,
+      0.66,
+      0.68,
+      0.7,
+      0.72,
+      0.74,
+      0.76,
+      0.78,
+      0.8,
+      0.82,
+      0.84,
+      0.86,
+      0.88,
+      0.9
+    ]
+  }
+}

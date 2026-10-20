@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 import psycopg
 
-from scripts import db, embeddings
+from scripts import abstention, db, embeddings
 from scripts.dense import DenseIndex
 from scripts.download_corpus import sha256_bytes
 from scripts.evaluate import CHUNK_FILES, DEPTH
@@ -42,6 +42,15 @@ class ModelUnavailable(ServiceUnavailable):
 
 class DatabaseNotReady(ServiceUnavailable):
     """La base de datos no responde, no está cargada o está desfasada respecto a data/chunks."""
+
+
+@dataclass(frozen=True)
+class SearchOutcome:
+    """Resultado de una búsqueda: los hits y, en dense/hybrid, el coseno del mejor chunk y si el servicio se abstuvo."""
+
+    hits: list["SearchHit"]
+    best_cosine: float | None = None
+    abstained: bool = False
 
 
 @dataclass(frozen=True)
@@ -94,9 +103,12 @@ def passage_snippet(body: str, fragment: str, limit: int = SNIPPET_CHARS) -> str
 
 
 class RetrievalService:
-    def __init__(self, schema: str | None = None, embed_query=None, enable_tenants: bool = False):
+    def __init__(self, schema: str | None = None, embed_query=None, enable_tenants: bool = False, abstain: bool = True, thresholds: dict[str, float] | None = None):
         self.schema = schema
         self.tenants_enabled = enable_tenants
+        # Abstención: solo dense e hybrid, y solo ante consultas claramente ajenas al corpus (ver scripts/abstention.py).
+        # `thresholds`: umbrales de coseno por chunking; None los lee de data/abstention/threshold.json ({} si no existe).
+        self.thresholds: dict[str, float] = (abstention.load_thresholds() if thresholds is None else thresholds) if abstain else {}
         self.model_error: str | None = None
         self._embed_query = embed_query  # None: el modelo se carga en `start()`
         self._model = None
@@ -127,7 +139,7 @@ class RetrievalService:
             database = True
         except (psycopg.Error, RuntimeError):
             database = False
-        return {"database": database, "model": self._embed_query is not None, "tenants_enabled": self.tenants_enabled}
+        return {"database": database, "model": self._embed_query is not None, "tenants_enabled": self.tenants_enabled, "abstention": bool(self.thresholds)}
 
     # ---------- búsqueda ----------
 
@@ -150,6 +162,10 @@ class RetrievalService:
         return index
 
     def search(self, query: str, top_k: int = 10, mode: str = "hybrid", chunking: str = "window", tenant: str | None = None) -> list[SearchHit]:
+        return self.search_outcome(query, top_k, mode, chunking, tenant).hits
+
+    def search_outcome(self, query: str, top_k: int = 10, mode: str = "hybrid", chunking: str = "window", tenant: str | None = None) -> SearchOutcome:
+        """Como `search`, con el coseno del mejor chunk (dense/hybrid) y si el servicio se abstuvo por quedar bajo el umbral."""
         if mode not in MODES:
             raise ValueError(f"modo desconocido: {mode!r}")
         if chunking not in CHUNK_FILES:
@@ -158,8 +174,19 @@ class RetrievalService:
         if mode in ("dense", "hybrid") and self._embed_query is None:
             raise ModelUnavailable(self.model_error or "modelo de embeddings no cargado")
         try:
-            chunks = self._index(mode, chunking, tenant).search_chunks(query, DEPTH)
-            return self._hydrate(chunks, top_k, tenant, query if chunking == "article" else None)
+            index = self._index(mode, chunking, tenant)
+            best = None
+            if mode == "dense":
+                scored = index.search_scored(query, DEPTH)
+                chunks, best = [(chunk_id, article) for chunk_id, article, _ in scored], (scored[0][2] if scored else None)
+            elif mode == "hybrid":
+                chunks, best = index.search_chunks_scored(query, DEPTH)
+            else:
+                chunks = index.search_chunks(query, DEPTH)
+            threshold = self.thresholds.get(chunking)
+            if best is not None and threshold is not None and best < threshold:
+                return SearchOutcome([], best, True)  # sin resultados: ni siquiera se leen los chunks
+            return SearchOutcome(self._hydrate(chunks, top_k, tenant, query if chunking == "article" else None), best)
         except (psycopg.Error, RuntimeError) as error:
             raise DatabaseNotReady(str(error)) from error
 

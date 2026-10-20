@@ -117,6 +117,7 @@ The corpus is frozen by storing the SHA-256 hash of each download and versioning
 - `data/raw/`: HTML downloaded from EUR-Lex. **Not versioned**: it is downloaded again and validated against the hash.
 - `data/corpus.sha256`: the frozen hashes of the corpus. It **is** versioned and guarantees that everybody works on the
   same text.
+- `data/abstention/`: 20 unanswerable queries (10 off-topic, 10 near-domain) used to study abstention. Their "no answer in the corpus" status is stated by the author, they are frozen with a hash and are **not** part of the golden set.
 - `data/chunks/`: chunks as JSONL (`articles.jsonl` and `windows_w200_o40.jsonl`). They **are** versioned. A test checks
   that regenerating them from the frozen corpus gives exactly the same files (that test needs the downloaded HTML, so
   it runs locally and is skipped in the CI).
@@ -254,6 +255,55 @@ A query is **bad** for a chunking if the hybrid's nDCG@10 is below 0.3 or there 
 - The probes were written **knowing which article is relevant**: they show that a cause is *sufficient* to explain the failure, not that the change improves the system in general. They are not used to modify the system or the golden set.
 - A retrieved article that the golden set did not judge counts as a miss (see "No pooling"): some of these cases may be an incomplete judgment rather than a system error. Deciding that belongs to whoever sets the judgments.
 - Few queries and a single annotator: they describe these cases and do not allow generalizing.
+
+#### Abstention: cosine of the best chunk (golden set versus unanswerable queries)
+
+Could a threshold on the best chunk's cosine make the retriever abstain on queries with no answer? The cosine of the 40 golden-set queries (answerable) is compared with that of 20 unanswerable queries (10 off-topic and 10 "near-domain", outside the corpus), set by whoever sets the judgments, in `data/abstention/` (frozen with a hash). It is computed with `python cli.py abstention`; the API applies the proposed threshold with windows (`data/abstention/threshold.json`, rounded down to thousandths) in `dense` and `hybrid`, only to discard clearly unrelated queries; with articles it does not abstain, because there the threshold rejects legitimate queries.
+
+| Chunking | Group | Queries | Minimum cosine | Median | Maximum |
+|---|---|---|---|---|---|
+| article | Golden set (answerable) | 40 | 0.518 | 0.707 | 0.859 |
+| article | Unanswerable, off-topic | 10 | 0.348 | 0.441 | 0.557 |
+| article | Unanswerable, near-domain | 10 | 0.621 | 0.664 | 0.701 |
+| window | Golden set (answerable) | 40 | 0.556 | 0.722 | 0.845 |
+| window | Unanswerable, off-topic | 10 | 0.348 | 0.444 | 0.549 |
+| window | Unanswerable, near-domain | 10 | 0.611 | 0.679 | 0.712 |
+
+| Chunking | Golden set versus… | AUC [95% CI] |
+|---|---|---|
+| article | all unanswerable queries | 0.868 [0.769, 0.944] |
+| article | off-topic only | 0.995 [0.978, 1.000] |
+| article | near-domain only | 0.740 [0.600, 0.865] |
+| window | all unanswerable queries | 0.876 [0.779, 0.949] |
+| window | off-topic only | 1.000 [1.000, 1.000] |
+| window | near-domain only | 0.752 [0.613, 0.873] |
+
+| Chunking | Threshold | Golden set kept | Off-topic rejected | Near-domain rejected |
+|---|---|---|---|---|
+| article | 0.50 | 40/40 | 8/10 | 0/10 |
+| article | 0.54 | 39/40 | 9/10 | 0/10 |
+| article | 0.58 | 38/40 | 10/10 | 0/10 |
+| article | 0.62 | 33/40 | 10/10 | 0/10 |
+| article | 0.66 | 31/40 | 10/10 | 4/10 |
+| article | 0.70 | 22/40 | 10/10 | 9/10 |
+| article | 0.74 | 11/40 | 10/10 | 10/10 |
+| article | 0.78 | 5/40 | 10/10 | 10/10 |
+| window | 0.50 | 40/40 | 7/10 | 0/10 |
+| window | 0.54 | 40/40 | 9/10 | 0/10 |
+| window | 0.58 | 39/40 | 10/10 | 0/10 |
+| window | 0.62 | 36/40 | 10/10 | 1/10 |
+| window | 0.66 | 33/40 | 10/10 | 3/10 |
+| window | 0.70 | 26/40 | 10/10 | 8/10 |
+| window | 0.74 | 14/40 | 10/10 | 10/10 |
+| window | 0.78 | 7/40 | 10/10 | 10/10 |
+
+With article chunking, the threshold that keeps at least 95% of the golden set (rule fixed before computing) is **0.589**: it keeps 38 of 40 queries, rejects 10 of 10 off-topic and 0 of 10 near-domain. Golden-set queries it would reject: q021 «letter-box» (0.540); q031 «deep fake» (0.518).
+
+With window chunking, the threshold that keeps at least 95% of the golden set (rule fixed before computing) is **0.610**: it keeps 38 of 40 queries, rejects 10 of 10 off-topic and 0 of 10 near-domain. Golden-set queries it would reject: q021 «letter-box» (0.556); q030 «floating point operations» (0.609).
+
+- The AUC is the probability that an answerable query has a higher cosine than an unanswerable one (0.5 = indistinguishable; 1 = fully separated). If the groups do not overlap in the sample, the bootstrap gives a degenerate CI at 1.000: it does not measure real uncertainty, only that these queries do not overlap.
+- The golden-set queries were written "from the article", so their cosine is higher than a real user's; and the threshold is calibrated on the same queries it is evaluated on. Both make it optimistic.
+- That the unanswerable queries have no answer in the corpus is stated by whoever sets the judgments, not by a script. With 40 and 20 queries the intervals are wide: it is a hint, not a final threshold.
 <!-- results:end -->
 
 ## Try the API
@@ -280,6 +330,14 @@ curl -s -X POST localhost:5013/hybridretrievals -H 'content-type: application/js
 Each result carries `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, a `snippet` of about 400 characters and
 `chunk_words` (the size of the returned chunk). `GET /health` reports whether the database and the model are responding.
 
+- **Abstention (only for clearly unrelated queries):** in `dense` and `hybrid`, if the cosine of the best chunk is below a
+  threshold (`data/abstention/threshold.json`: 0.609, calibrated as described in [Results](#results)) **and
+  `chunking=window`**, the answer is a `200` with `results: []`, `abstained: true` and the `best_cosine` that explains it.
+  `fts` never abstains and needs no model. It is on by default; `API_ENABLE_ABSTENTION=false` turns it off, and `/health`
+  reports `abstention`. **It only discards queries that are clearly outside the corpus** (pizza, football): it does not
+  detect near-domain ones (MiFID, Basel), and it can wrongly reject short exact-term queries: it rejects 2 of the 40
+  golden-set queries. With `chunking=article` it does **not** abstain: there the threshold also rejected legitimate queries
+  such as `social scoring` (a real AI Act term) and the groups overlap more.
 - **What the snippet is:** with `chunking=window` it is the start of the best-matching window. With `chunking=article` the
   chunk is the whole article (`chunk_id` ends in `art_N`), so the snippet is the **passage that best matches the query
   words** (Postgres `ts_headline`), with «…» where it is cut; if the query shares no words with the article (for example in
@@ -300,7 +358,7 @@ Each result carries `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, a `s
   With `API_ENABLE_TENANTS=true`, `X-Tenant-ID` activates RLS isolation (see
   [Multi-tenant isolation](#multi-tenant-isolation-rls)). **There is no authentication: anyone can claim any tenant**,
   so it must not be used to protect real data.
-- **Known limits:** every request opens its own connections (no pool); the handler is asynchronous but calls the
+- **Known limits:** abstention is a single cosine threshold, not a relevance judgment; every request opens its own connections (no pool); the handler is asynchronous but calls the
   pipeline's synchronous code in a thread (`asyncio.to_thread`) instead of using `AsyncConnection`; no authentication
   or rate limiting; CORS only for `https://localhost:5013`; per-request latency has not been measured.
 
@@ -562,11 +620,13 @@ virtual environment active. `python cli.py --help` lists the available commands.
 | `python cli.py validate-golden` | Validates the golden set: format, that the articles exist, grades 1–3, queries without judgments; shows review warnings and the split by type. Fails on errors or if the frozen golden set was modified. |
 | `python cli.py freeze-golden` | Freezes the golden set (SHA-256 in `data/golden/golden.sha256`). Only with the complete set. |
 | `python cli.py compare <A> <B> [--metric ndcg@10] [--bonferroni N]` | Paired difference A − B between two results in `results/` (e.g. `bm25_window fts_window`), with a bootstrap interval overall and per query type (and, with `--bonferroni N`, the overall one corrected for N comparisons). Refuses if the results come from different golden sets. |
-| `python cli.py embed [--verify]` | Computes the embeddings of chunks and queries with the pinned model and stores them in `data/embeddings/`. With `--verify` it does not recompute: it checks that a sample reproduces what is stored. Needs `requirements-embeddings.txt`. |
+| `python cli.py embed [--verify] [--only NAME]` | Computes the embeddings of chunks and queries with the pinned model and stores them in `data/embeddings/`. With `--verify` it does not recompute: it checks that a sample reproduces what is stored. With `--only NAME` (e.g. `abstention_queries`) it computes just that source and leaves the rest of the manifest and files untouched. Needs `requirements-embeddings.txt`. |
 | `python cli.py bench-index [--size N] [--skip-synthetic]` | Compares HNSW and IVFFlat (recall and latency) in a temporary schema that is dropped afterwards; writes `results/index_benchmark.json`. |
 | `python cli.py gate` | Regression gate: fails if the hybrid (exact search) falls below the thresholds in `data/gate/thresholds.json`. |
 | `python cli.py calibrate-gate [--write-thresholds]` | Recomputes noise, sensitivity to regressions and thresholds (local; needs torch). |
 | `python cli.py gate-margin X` | Sets the gate margin by hand (≥ 0.01) and recomputes the thresholds from the stored calibration. |
+| `python cli.py freeze-abstention` | Validates and freezes (SHA-256) the unanswerable queries in `data/abstention/`. |
+| `python cli.py abstention` | Cosine of the best chunk for the golden-set queries versus the unanswerable ones; writes `results/abstention.json`, which `report` turns into the «Abstention» section. Needs the loaded Postgres. |
 | `python cli.py error-analysis` | Analyzes why each bad query of the hybrid fails (positions, terms, one-change probes) and writes `results/error_analysis.json`, which `report` turns into the «Error analysis» section. Local; the probes with rewritten queries need torch. |
 | `python cli.py report [--check]` | Writes the generated blocks of both READMEs (between the `tldr:start`/`tldr:end` and `results:start`/`results:end` markers) from `results/`, `data/gate/` and `results/index_benchmark.json`. With `--check` it does not write: it fails if a README is stale. |
 | `python cli.py init-db` | Creates (or updates) the schema in Postgres. Needs `docker compose up -d` and the `.env`. |

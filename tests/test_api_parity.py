@@ -4,11 +4,14 @@ Se ejecuta contra el corpus público cargado en la base de datos (`python cli.py
 modelo se saltan si no está instalado.
 """
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
 from functions.retriever import ModelUnavailable, RetrievalService
 from main import create_app
+from scripts import abstention
 from scripts import evaluate as ev
 from scripts.golden import QUERIES_FILE, load_jsonl
 from tests.helpers import skip_or_fail
@@ -18,7 +21,7 @@ QUERIES = load_jsonl(QUERIES_FILE)
 
 @pytest.fixture(scope="module")
 def real_service():
-    svc = RetrievalService()
+    svc = RetrievalService(abstain=False)  # la paridad es de rankings; la abstención se prueba aparte
     svc.start()  # intenta cargar el modelo; si no puede, queda sin él
     try:
         svc.search("Lead Overseer", mode="fts", chunking="article")
@@ -51,6 +54,28 @@ def test_model_modes_return_exactly_the_rankings_that_evaluate_measured(real_ser
     except ModelUnavailable:
         pytest.skip("modelo de embeddings no instalado (requirements-embeddings.txt)")
     assert got == evaluation_rankings(system, chunking)
+
+
+@pytest.mark.parametrize("mode", ["dense", "hybrid"])
+@pytest.mark.parametrize("chunking", ["article", "window"])
+def test_with_abstention_on_it_only_abstains_below_the_threshold_and_otherwise_matches_evaluate(real_service, mode, chunking):
+    """Con la abstención activa, una consulta del golden set o se abstiene (coseno guardado < umbral) o da el ranking medido."""
+    saved = json.loads(abstention.RESULTS_FILE.read_text(encoding="utf-8"))["chunkings"][chunking]["golden"]
+    cosine = {row["query_id"]: row["cosine"] for row in saved}
+    threshold = abstention.load_thresholds().get(chunking)  # None con artículos: la API no se abstiene
+    svc = RetrievalService()
+    svc.start()
+    measured = evaluation_rankings(mode, chunking)
+    try:
+        outcomes = {q["query_id"]: svc.search_outcome(q["query"], top_k=10, mode=mode, chunking=chunking) for q in QUERIES}
+    except ModelUnavailable:
+        pytest.skip("modelo de embeddings no instalado (requirements-embeddings.txt)")
+    for query_id, outcome in outcomes.items():
+        assert outcome.abstained == (threshold is not None and cosine[query_id] < threshold), query_id
+        if outcome.abstained:
+            assert outcome.hits == []
+        else:
+            assert [(h.celex, h.article) for h in outcome.hits] == measured[query_id], query_id
 
 
 def test_the_http_layer_serves_a_real_query_end_to_end(real_service):

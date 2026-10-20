@@ -120,6 +120,7 @@ El corpus se congela guardando el SHA-256 de cada descarga y versionando los chu
 - `data/raw/`: HTML descargado de EUR-Lex. **No se versiona**: se vuelve a descargar y se valida con el hash.
 - `data/corpus.sha256`: hashes congelados del corpus. **Sí** se versiona; es lo que garantiza que todos trabajan con el
   mismo texto.
+- `data/abstention/`: 20 consultas sin respuesta (10 fuera de tema, 10 casi del dominio) para estudiar la abstención. Que no tengan respuesta en el corpus lo afirma el autor, están congeladas con hash y **no** forman parte del golden set.
 - `data/chunks/`: chunks en JSONL (`articles.jsonl` y `windows_w200_o40.jsonl`). **Sí** se versionan. Un test comprueba
   que regenerarlos desde el corpus congelado da exactamente los mismos ficheros (ese test necesita el HTML descargado,
   así que se ejecuta en local y se salta en la CI).
@@ -257,6 +258,55 @@ Una consulta es **mala** para un chunking si el nDCG@10 del híbrido es menor qu
 - Las sondas se redactaron **sabiendo cuál es el artículo relevante**: muestran que una causa es *suficiente* para explicar el fallo, no que ese cambio mejore el sistema en general. No se usan para modificar el sistema ni el golden set.
 - Un artículo recuperado que el golden set no juzgó cuenta como fallo (ver «Sin pooling»): parte de estos casos puede ser un juicio incompleto y no un error del sistema. Decidirlo corresponde a quien pone los juicios.
 - Son pocas consultas y un solo anotador: describen estos casos, no permiten generalizar.
+
+#### Abstención: coseno del mejor chunk (golden set frente a consultas sin respuesta)
+
+¿Podría un umbral sobre el coseno del mejor chunk hacer que el recuperador se abstenga ante consultas sin respuesta? Se compara el coseno de las 40 consultas del golden set (con respuesta) con el de 20 consultas sin respuesta (10 fuera de tema y 10 «casi del dominio», fuera del corpus), puestas por quien pone los juicios, en `data/abstention/` (congeladas con hash). Se calcula con `python cli.py abstention`; la API aplica el umbral propuesto con ventanas (`data/abstention/threshold.json`, redondeado hacia abajo a milésimas) en `dense` e `hybrid`, solo para descartar consultas claramente ajenas; con artículos no se abstiene, porque ahí el umbral rechaza consultas legítimas.
+
+| Chunking | Grupo | Consultas | Coseno mínimo | Mediana | Máximo |
+|---|---|---|---|---|---|
+| artículo | Golden set (con respuesta) | 40 | 0,518 | 0,707 | 0,859 |
+| artículo | Sin respuesta, fuera de tema | 10 | 0,348 | 0,441 | 0,557 |
+| artículo | Sin respuesta, casi del dominio | 10 | 0,621 | 0,664 | 0,701 |
+| ventanas | Golden set (con respuesta) | 40 | 0,556 | 0,722 | 0,845 |
+| ventanas | Sin respuesta, fuera de tema | 10 | 0,348 | 0,444 | 0,549 |
+| ventanas | Sin respuesta, casi del dominio | 10 | 0,611 | 0,679 | 0,712 |
+
+| Chunking | Golden set frente a… | AUC [IC 95 %] |
+|---|---|---|
+| artículo | todas las consultas sin respuesta | 0,868 [0,769, 0,944] |
+| artículo | solo fuera de tema | 0,995 [0,978, 1,000] |
+| artículo | solo casi del dominio | 0,740 [0,600, 0,865] |
+| ventanas | todas las consultas sin respuesta | 0,876 [0,779, 0,949] |
+| ventanas | solo fuera de tema | 1,000 [1,000, 1,000] |
+| ventanas | solo casi del dominio | 0,752 [0,613, 0,873] |
+
+| Chunking | Umbral | Golden set conservado | Fuera de tema rechazadas | Casi del dominio rechazadas |
+|---|---|---|---|---|
+| artículo | 0,50 | 40/40 | 8/10 | 0/10 |
+| artículo | 0,54 | 39/40 | 9/10 | 0/10 |
+| artículo | 0,58 | 38/40 | 10/10 | 0/10 |
+| artículo | 0,62 | 33/40 | 10/10 | 0/10 |
+| artículo | 0,66 | 31/40 | 10/10 | 4/10 |
+| artículo | 0,70 | 22/40 | 10/10 | 9/10 |
+| artículo | 0,74 | 11/40 | 10/10 | 10/10 |
+| artículo | 0,78 | 5/40 | 10/10 | 10/10 |
+| ventanas | 0,50 | 40/40 | 7/10 | 0/10 |
+| ventanas | 0,54 | 40/40 | 9/10 | 0/10 |
+| ventanas | 0,58 | 39/40 | 10/10 | 0/10 |
+| ventanas | 0,62 | 36/40 | 10/10 | 1/10 |
+| ventanas | 0,66 | 33/40 | 10/10 | 3/10 |
+| ventanas | 0,70 | 26/40 | 10/10 | 8/10 |
+| ventanas | 0,74 | 14/40 | 10/10 | 10/10 |
+| ventanas | 0,78 | 7/40 | 10/10 | 10/10 |
+
+Con chunking por artículo, el umbral que conserva al menos el 95 % del golden set (regla fijada antes de calcular) es **0,589**: conserva 38 de 40 consultas, rechaza 10 de 10 fuera de tema y 0 de 10 casi del dominio. Consultas del golden set que rechazaría: q021 «letter-box» (0,540); q031 «deep fake» (0,518).
+
+Con chunking por ventanas, el umbral que conserva al menos el 95 % del golden set (regla fijada antes de calcular) es **0,610**: conserva 38 de 40 consultas, rechaza 10 de 10 fuera de tema y 0 de 10 casi del dominio. Consultas del golden set que rechazaría: q021 «letter-box» (0,556); q030 «floating point operations» (0,609).
+
+- El AUC es la probabilidad de que una consulta con respuesta tenga más coseno que una sin respuesta (0,5 = no se distinguen; 1 = se separan del todo). Si los grupos no se solapan en la muestra, el bootstrap da un IC degenerado en 1,000: no mide incertidumbre real, solo que en estas consultas no hay solapamiento.
+- Las consultas del golden set se escribieron «desde el artículo», así que su coseno es más alto que el de un usuario real; y el umbral se calibra con las mismas consultas con las que se evalúa. Ambas cosas lo hacen optimista.
+- Que las consultas sin respuesta no tengan respuesta en el corpus lo afirma quien pone los juicios, no un script. Con 40 y 20 consultas, los intervalos son anchos: es un indicio, no un umbral definitivo.
 <!-- results:end -->
 
 ## Probar la API
@@ -283,6 +333,14 @@ curl -s -X POST localhost:5013/hybridretrievals -H 'content-type: application/js
 Cada resultado trae `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, un `snippet` de unos 400 caracteres y
 `chunk_words` (el tamaño del chunk devuelto). `GET /health` indica si responden la base de datos y el modelo.
 
+- **Abstención (solo para consultas claramente ajenas):** en `dense` e `hybrid`, si el coseno del mejor chunk queda bajo un
+  umbral (`data/abstention/threshold.json`: 0,609, calibrado como se describe en [Resultados](#resultados)) **y
+  `chunking=window`**, la respuesta es un `200` con `results: []`, `abstained: true` y el `best_cosine` que lo
+  explica. `fts` nunca se abstiene y no necesita el modelo. Está activa por defecto; `API_ENABLE_ABSTENTION=false` la
+  desactiva, y `/health` informa de `abstention`. **Solo descarta consultas claramente ajenas al corpus** (la pizza, el
+  fútbol): no detecta las «casi del dominio» (MiFID, Basel) y puede rechazar por error consultas cortas de término exacto:
+  rechaza 2 de las 40 consultas del golden set. Con `chunking=article` **no** se abstiene: allí el umbral rechazaba
+  además consultas legítimas como `social scoring` (un término real del AI Act) y los grupos se solapan más.
 - **Qué es el fragmento:** con `chunking=window` es el inicio de la ventana que mejor encajó. Con `chunking=article` el
   chunk es el artículo entero (el `chunk_id` termina en `art_N`), así que el fragmento es el **pasaje que más coincide
   con las palabras de la consulta** (`ts_headline` de Postgres), con «…» donde se recorta; si la consulta no comparte
@@ -303,7 +361,7 @@ Cada resultado trae `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, un `
   `API_ENABLE_TENANTS=true`, `X-Tenant-ID` activa el aislamiento por RLS (ver
   [Aislamiento multi-inquilino](#aislamiento-multi-inquilino-rls)). **No hay autenticación: cualquiera puede declarar
   cualquier inquilino**, así que no debe usarse para proteger datos reales.
-- **Límites conocidos:** cada petición abre sus propias conexiones (sin pool); el manejador es asíncrono pero llama
+- **Límites conocidos:** la abstención es un único umbral de coseno, no un juicio de relevancia; cada petición abre sus propias conexiones (sin pool); el manejador es asíncrono pero llama
   al código síncrono del pipeline en un hilo (`asyncio.to_thread`) en lugar de usar `AsyncConnection`; sin
   autenticación ni límite de peticiones; CORS solo para `https://localhost:5013`; la latencia por petición no se ha
   medido.
@@ -573,11 +631,13 @@ el entorno virtual activo. `python cli.py --help` lista los comandos disponibles
 | `python cli.py validate-golden` | Valida el golden set: formato, que los artículos existen, grados 1–3, consultas sin juicios; muestra avisos de revisión y el reparto por tipo. Falla si hay errores o si el golden set congelado se modificó. |
 | `python cli.py freeze-golden` | Congela el golden set (SHA-256 en `data/golden/golden.sha256`). Solo con el conjunto completo. |
 | `python cli.py compare <A> <B> [--metric ndcg@10] [--bonferroni N]` | Diferencia pareada A − B entre dos resultados de `results/` (p. ej. `bm25_window fts_window`), con intervalo bootstrap global y por tipo de consulta (y, con `--bonferroni N`, el global corregido para N comparaciones). Se niega si los resultados vienen de golden sets distintos. |
-| `python cli.py embed [--verify]` | Calcula los embeddings de chunks y consultas con el modelo fijado y los guarda en `data/embeddings/`. Con `--verify` no recalcula: comprueba que una muestra se reproduce con lo guardado. Requiere `requirements-embeddings.txt`. |
+| `python cli.py embed [--verify] [--only NOMBRE]` | Calcula los embeddings de chunks y consultas con el modelo fijado y los guarda en `data/embeddings/`. Con `--verify` no recalcula: comprueba que una muestra se reproduce con lo guardado. Con `--only NOMBRE` (p. ej. `abstention_queries`) calcula solo esa fuente y deja intactos el resto del manifest y de los ficheros. Requiere `requirements-embeddings.txt`. |
 | `python cli.py bench-index [--size N] [--skip-synthetic]` | Compara HNSW e IVFFlat (recall y latencia) en un esquema temporal que se borra al terminar; guarda `results/index_benchmark.json`. |
 | `python cli.py gate` | Regression gate: falla si el híbrido (búsqueda exacta) cae bajo los umbrales de `data/gate/thresholds.json`. |
 | `python cli.py calibrate-gate [--write-thresholds]` | Recalcula ruido, sensibilidad a regresiones y umbrales (local; requiere torch). |
 | `python cli.py gate-margin X` | Fija a mano el margen del gate (≥ 0,01) y recalcula los umbrales desde la calibración guardada. |
+| `python cli.py freeze-abstention` | Valida y congela (SHA-256) las consultas sin respuesta de `data/abstention/`. |
+| `python cli.py abstention` | Coseno del mejor chunk de las consultas del golden set frente a las sin respuesta; guarda `results/abstention.json`, que `report` convierte en la sección «Abstención». Requiere el Postgres cargado. |
 | `python cli.py error-analysis` | Analiza por qué falla cada consulta mala del híbrido (posiciones, términos, sondas de un solo cambio) y guarda `results/error_analysis.json`, que `report` convierte en la sección «Análisis de errores». Local; las sondas con consultas reescritas necesitan torch. |
 | `python cli.py report [--check]` | Escribe los bloques generados de los dos README (entre las marcas `tldr:start`/`tldr:end` y `results:start`/`results:end`) a partir de `results/`, `data/gate/` y `results/index_benchmark.json`. Con `--check` no escribe: falla si algún README está desactualizado. |
 | `python cli.py init-db` | Crea (o actualiza) el esquema en Postgres. Requiere `docker compose up -d` y el `.env`. |

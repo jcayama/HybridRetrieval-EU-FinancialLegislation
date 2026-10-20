@@ -4,7 +4,7 @@ import sys
 
 import click
 
-from scripts import bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, error_analysis, evaluate, gate, golden, report
+from scripts import abstention, bench_index, browse_corpus, chunk_corpus, compare, db, embeddings, error_analysis, evaluate, gate, golden, report
 from scripts import download_corpus as corpus
 
 
@@ -86,9 +86,10 @@ def compare_command(result_a: str, result_b: str, metric: str, family_size: int 
 
 @cli.command("embed")
 @click.option("--verify", "check", is_flag=True, help="No recalcula: comprueba que una muestra se reproduce con los vectores guardados.")
-def embed_command(check: bool):
+@click.option("--only", multiple=True, help="Calcula solo esta fuente (repetible) y conserva el resto del manifest, p. ej. --only abstention_queries.")
+def embed_command(check: bool, only: tuple[str, ...]):
     """Calcula los embeddings (modelo fijado) y los guarda en data/embeddings/. Requiere requirements-embeddings.txt."""
-    sys.exit(embeddings.run(check))
+    sys.exit(embeddings.run(check, list(only) or None))
 
 
 @cli.command("bench-index")
@@ -124,6 +125,19 @@ def gate_margin_command(margin: float):
 def error_analysis_command():
     """Analiza por qué falla cada consulta mala del híbrido y guarda results/error_analysis.json (local; requiere torch)."""
     sys.exit(error_analysis.run())
+
+
+@cli.command("freeze-abstention")
+def freeze_abstention_command():
+    """Valida y congela (SHA-256) las consultas sin respuesta de data/abstention."""
+    sys.exit(abstention.run_freeze())
+
+
+@cli.command("abstention")
+@click.option("--write-threshold", is_flag=True, help="Escribe data/abstention/threshold.json (el umbral que usa la API) con la regla fijada de antemano.")
+def abstention_command(write_threshold: bool):
+    """Coseno del mejor chunk: golden set frente a consultas sin respuesta; guarda results/abstention.json (necesita Postgres cargado)."""
+    sys.exit(abstention.run(write_threshold))
 
 
 @cli.command("report")

@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from functions.retriever import DatabaseNotReady, ModelUnavailable, SearchHit
+from functions.retriever import DatabaseNotReady, ModelUnavailable, SearchHit, SearchOutcome
 from main import create_app
 
 
@@ -13,21 +13,24 @@ def hit(rank, article=None):
 
 
 class FakeService:
-    def __init__(self, tenants_enabled=False, error=None, hits=None, database=True, model=True):
+    def __init__(self, tenants_enabled=False, error=None, hits=None, database=True, model=True, best_cosine=None, abstained=False, abstention=True):
         self.tenants_enabled = tenants_enabled
         self.error = error
         self.hits = hits if hits is not None else [hit(i) for i in range(1, 6)]
         self.database, self.model = database, model
+        self.best_cosine, self.abstained, self.abstention = best_cosine, abstained, abstention
         self.calls = []
 
     def status(self):
-        return {"database": self.database, "model": self.model, "tenants_enabled": self.tenants_enabled}
+        return {"database": self.database, "model": self.model, "tenants_enabled": self.tenants_enabled, "abstention": self.abstention}
 
-    def search(self, query, top_k=10, mode="hybrid", chunking="window", tenant=None):
+    def search_outcome(self, query, top_k=10, mode="hybrid", chunking="window", tenant=None):
         self.calls.append({"query": query, "top_k": top_k, "mode": mode, "chunking": chunking, "tenant": tenant})
         if self.error:
             raise self.error
-        return self.hits[:top_k]
+        if self.abstained:
+            return SearchOutcome([], self.best_cosine, True)
+        return SearchOutcome(self.hits[:top_k], self.best_cosine)
 
 
 def post(service, body, headers=None):
@@ -45,7 +48,7 @@ def test_root_answers_with_the_project_title():
 def test_health_reports_database_model_and_tenants():
     body = TestClient(create_app(service=FakeService(tenants_enabled=True, model=False))).get("/health")
     assert body.status_code == 200
-    assert body.json() == {"status": "ok", "database": True, "model": False, "tenants_enabled": True}
+    assert body.json() == {"status": "ok", "database": True, "model": False, "tenants_enabled": True, "abstention": True}
 
 
 def test_health_is_503_when_the_database_is_down():
@@ -170,3 +173,27 @@ def test_openapi_documents_the_endpoint_and_the_interactive_docs_exist():
     assert "post" in spec["paths"]["/hybridretrievals"] and "/health" in spec["paths"]
     assert {"RetrievalRequest", "RetrievalResponse"} <= set(spec["components"]["schemas"])
     assert client.get("/docs").status_code == 200
+
+
+# ---------- abstención ----------
+
+
+def test_an_abstention_is_a_200_with_no_results_and_the_cosine_that_explains_it():
+    response = post(FakeService(abstained=True, best_cosine=0.41), {"query": "pizza"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["results"] == [] and body["abstained"] is True and body["best_cosine"] == 0.41
+
+
+def test_a_normal_answer_is_not_an_abstention_and_carries_the_cosine():
+    body = post(FakeService(best_cosine=0.73), {"query": "Lead Overseer"}).json()
+    assert body["abstained"] is False and body["best_cosine"] == 0.73 and len(body["results"]) == 5
+
+
+def test_fts_answers_carry_no_cosine():
+    body = post(FakeService(), {"query": "Lead Overseer", "mode": "fts"}).json()
+    assert body["abstained"] is False and body["best_cosine"] is None
+
+
+def test_health_reports_whether_abstention_is_active():
+    assert TestClient(create_app(service=FakeService(abstention=False))).get("/health").json()["abstention"] is False

@@ -49,6 +49,14 @@ class RetrievalResponse(BaseModel):
     chunking: str
     top_k: int
     results: list[Hit]
+    abstained: bool = Field(
+        default=False,
+        description=(
+            "true si el servicio no devolvió resultados porque el coseno del mejor chunk quedó bajo el umbral: la consulta parece ajena al corpus. "
+            "Solo en los modos dense y hybrid. El umbral solo descarta consultas claramente ajenas; no detecta las «casi del dominio»."
+        ),
+    )
+    best_cosine: float | None = Field(default=None, description="Coseno del mejor chunk de la búsqueda densa (solo en dense y hybrid); null en fts.")
 
 
 class HealthResponse(BaseModel):
@@ -56,3 +64,4 @@ class HealthResponse(BaseModel):
     database: bool
     model: bool
     tenants_enabled: bool
+    abstention: bool

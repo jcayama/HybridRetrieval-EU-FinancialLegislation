@@ -1,6 +1,44 @@
 {
   "dim": 384,
   "files": {
+    "abstention_queries": {
+      "file": "abstention_queries.npy",
+      "ids": [
+        "n001",
+        "n002",
+        "n003",
+        "n004",
+        "n005",
+        "n006",
+        "n007",
+        "n008",
+        "n009",
+        "n010",
+        "n011",
+        "n012",
+        "n013",
+        "n014",
+        "n015",
+        "n016",
+        "n017",
+        "n018",
+        "n019",
+        "n020"
+      ],
+      "libraries": {
+        "machine": "arm64",
+        "numpy": "2.5.4",
+        "python": "3.12.10",
+        "sentence-transformers": "6.1.0",
+        "torch": "2.14.1",
+        "transformers": "5.19.0"
+      },
+      "n": 20,
+      "sha256": "86e045b3ac38f89c6593bc7144b545ead1a44214dd3c4e7d6d7957dad5296cbd",
+      "source": "queries.jsonl",
+      "source_sha256": "d847db4792cabd45c00a8cfae6b2a3a3a6f5a0a8a775ecba2ed548096f85a992",
+      "truncated_to_max_seq_length": 0
+    },
     "chunks_article": {
       "file": "chunks_article.npy",
       "ids": [

@@ -30,6 +30,8 @@ def error(status_code: int, error_type: str) -> JSONResponse:
         "Devuelve artículos distintos de AIFMD, DORA y el AI Act ordenados por relevancia. "
         "Cada resultado trae un fragmento de unos 400 caracteres y el tamaño del chunk (`chunk_words`): con `chunking=window` el fragmento "
         "es el inicio de la ventana; con `chunking=article`, el pasaje del artículo que más coincide con la consulta. "
+        "En `dense` e `hybrid`, si el coseno del mejor chunk queda bajo un umbral calibrado, la consulta parece ajena al corpus y la respuesta "
+        "es 200 con `results` vacío y `abstained=true` (con `best_cosine`); solo descarta consultas claramente ajenas, no las «casi del dominio». "
         "`mode=fts` funciona con `requirements.txt`; `hybrid` y `dense` necesitan además el modelo de embeddings. "
         "`X-Tenant-ID` solo tiene efecto si el servidor se arranca con `API_ENABLE_TENANTS=true`; no hay autenticación, "
         "así que no es una medida de seguridad sino una demostración del aislamiento por RLS con datos sintéticos."
@@ -50,12 +52,13 @@ async def hybrid_retriever(
             return error(400, "INVALID_TENANT")
         tenant = x_tenant_id
     try:
-        hits = await asyncio.to_thread(service.search, query, body.top_k, body.mode, body.chunking, tenant)
+        outcome = await asyncio.to_thread(service.search_outcome, query, body.top_k, body.mode, body.chunking, tenant)
     except ModelUnavailable:
         return error(503, "MODEL_UNAVAILABLE")
     except DatabaseNotReady:
         return error(503, "DATABASE_NOT_READY")
-    return RetrievalResponse(query=query, mode=body.mode, chunking=body.chunking, top_k=body.top_k, results=[Hit(**vars(h)) for h in hits])
+    results = [Hit(**vars(h)) for h in outcome.hits]
+    return RetrievalResponse(query=query, mode=body.mode, chunking=body.chunking, top_k=body.top_k, results=results, abstained=outcome.abstained, best_cosine=outcome.best_cosine)
 
 
 @hybrid_retrieval_router.get("/health", tags=["home"], response_model=HealthResponse, responses={503: {"model": HealthResponse}})

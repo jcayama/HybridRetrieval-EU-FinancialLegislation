@@ -11,6 +11,10 @@ class FakeIndex:
     def search_chunks(self, query, depth):
         return self.chunks[:depth]
 
+    def search_scored(self, query, depth):
+        """Como el índice denso real: (chunk_id, artículo, coseno), con un coseno que baja por posición."""
+        return [(chunk_id, article, 0.9 - 0.1 * i) for i, (chunk_id, article) in enumerate(self.chunks[:depth])]
+
 
 def entry(chunk_id, article):
     return chunk_id, ("C", article)
@@ -25,6 +29,14 @@ def test_rrf_index_fuses_lexical_and_dense_rankings():
     index = RrfIndex(LEXICAL, DENSE, "bm25")
     assert index.search_chunks("q", 10) == [entry("c2", 2), entry("c1", 1), entry("c3", 3)]
     assert index.search("q", 10) == [("C", 2), ("C", 1), ("C", 3)]
+
+
+def test_rrf_index_also_returns_the_cosine_of_the_best_dense_chunk_without_changing_the_ranking():
+    index = RrfIndex(LEXICAL, DENSE, "bm25")
+    chunks, best = index.search_chunks_scored("q", 10)
+    assert chunks == index.search_chunks("q", 10) and best == 0.9  # el primero de la lista densa (c2)
+    assert index.search_chunks_scored("q", 10)[0] == [entry("c2", 2), entry("c1", 1), entry("c3", 3)]
+    assert RrfIndex(LEXICAL, FakeIndex([]), "bm25").search_chunks_scored("q", 10)[1] is None  # sin chunks densos, sin coseno
 
 
 def test_rrf_index_respects_depth():

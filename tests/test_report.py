@@ -183,3 +183,24 @@ def test_the_error_section_is_in_the_right_language_and_inside_the_results_block
     en, es = rp.render(results, types, "en"), rp.render(results, types, "es")
     assert "#### Error analysis" in en and "explains the failure" in en and "Análisis de errores" not in en
     assert "#### Análisis de errores" in es and "explica el fallo" in es and "Error analysis" not in es
+
+
+# ---------- abstención ----------
+
+
+@pytest.mark.parametrize("lang", rp.LANGS)
+def test_the_abstention_section_has_the_expected_tables(lang):
+    data = json.loads(rp.ABSTENTION_FILE.read_text(encoding="utf-8"))
+    section = rp.section_abstention(lang)
+    lines = section.splitlines()
+    labels = tuple(f"| {rp.PACKS[lang]['chunk'][c]} |" for c in ("article", "window"))
+    assert sum(1 for x in lines if x.startswith(labels)) == 2 * (3 + 3 + len(rp.ABSTENTION_TABLE_THRESHOLDS))  # resumen, AUC y umbrales, por chunking
+    assert all(f"**{rp.fmt(b['proposal']['threshold'], 3, lang)}**" in section for b in data["chunkings"].values())  # el umbral propuesto, tal cual está en el JSON
+    assert {x["threshold"] for b in data["chunkings"].values() for x in b["table"]} >= set(rp.ABSTENTION_TABLE_THRESHOLDS)  # las filas mostradas existen en la rejilla
+
+
+def test_the_abstention_section_is_in_the_right_language(real):
+    results, types = real
+    en, es = rp.render(results, types, "en"), rp.render(results, types, "es")
+    assert "#### Abstention" in en and "applies the proposed threshold with windows" in en and "Abstención" not in en
+    assert "#### Abstención" in es and "aplica el umbral propuesto con ventanas" in es and "Abstention" not in es

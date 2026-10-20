@@ -32,8 +32,10 @@ BATCH_SIZE = 32
 
 EMBEDDINGS_DIR = ROOT / "data" / "embeddings"
 MANIFEST_NAME = "manifest.json"
-SOURCES = {"chunks_article": ARTICLES_FILE, "chunks_window": WINDOWS_FILE, "queries": QUERIES_FILE}
-ID_FIELD = {"chunks_article": "chunk_id", "chunks_window": "chunk_id", "queries": "query_id"}
+ABSTENTION_QUERIES_FILE = ROOT / "data" / "abstention" / "queries.jsonl"
+SOURCES = {"chunks_article": ARTICLES_FILE, "chunks_window": WINDOWS_FILE, "queries": QUERIES_FILE, "abstention_queries": ABSTENTION_QUERIES_FILE}
+ID_FIELD = {"chunks_article": "chunk_id", "chunks_window": "chunk_id", "queries": "query_id", "abstention_queries": "query_id"}
+QUERY_SOURCES = ("queries", "abstention_queries")  # llevan la instrucción de recuperación; los chunks, no
 STALE_HINT = "ejecuta `python cli.py embed` (requiere requirements-embeddings.txt)"
 
 
@@ -49,7 +51,7 @@ def load_model():
 
 def texts_for(name: str, rows: list[dict]) -> list[str]:
     """Texto que se codifica: las consultas llevan la instrucción; los chunks, no."""
-    if name == "queries":
+    if name in QUERY_SOURCES:
         return [QUERY_INSTRUCTION + row["query"] for row in rows]
     return [row["text"] for row in rows]
 
@@ -77,10 +79,23 @@ def _versions() -> dict:
     return out
 
 
-def build(model, out_dir: Path = EMBEDDINGS_DIR, sources: dict[str, Path] = SOURCES) -> dict:
-    """Calcula y guarda los embeddings de todas las fuentes, y escribe el manifest."""
+def build(model, out_dir: Path = EMBEDDINGS_DIR, sources: dict[str, Path] = SOURCES, only: list[str] | None = None) -> dict:
+    """Calcula y guarda los embeddings de las fuentes y escribe el manifest.
+
+    Con `only` calcula solo esas fuentes y conserva TAL CUAL las demás entradas del manifest y sus ficheros: así añadir un
+    conjunto nuevo no regenera (ni puede cambiar en el último decimal) los vectores ya publicados.
+    """
     out_dir.mkdir(parents=True, exist_ok=True)
-    manifest = {
+    if only is not None:
+        if unknown := [name for name in only if name not in sources]:
+            raise RuntimeError(f"fuente(s) desconocida(s): {', '.join(unknown)}")
+        manifest = read_manifest(out_dir)
+        if (manifest["model_id"], manifest["revision"], manifest["query_instruction"]) != (MODEL_ID, REVISION, QUERY_INSTRUCTION):
+            raise RuntimeError(f"los embeddings existentes se calcularon con otro modelo, revisión o instrucción; no se pueden mezclar: {STALE_HINT}")
+        sources = {name: sources[name] for name in only}
+    else:
+        manifest = None
+    manifest = manifest or {
         "model_id": MODEL_ID,
         "revision": REVISION,
         "query_instruction": QUERY_INSTRUCTION,
@@ -105,6 +120,8 @@ def build(model, out_dir: Path = EMBEDDINGS_DIR, sources: dict[str, Path] = SOUR
             "source_sha256": sha256_bytes(source.read_bytes()),
             "truncated_to_max_seq_length": count_truncated(model, texts),
         }
+        if only is not None:  # se calcula en otro momento que el resto del manifest: se anotan sus propias versiones
+            manifest["files"][name]["libraries"] = _versions()
     (out_dir / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest
 
@@ -150,13 +167,13 @@ def verify(model, out_dir: Path = EMBEDDINGS_DIR, sources: dict[str, Path] = SOU
     return worst
 
 
-def run(check: bool = False) -> int:
+def run(check: bool = False, only: list[str] | None = None) -> int:
     try:
         model = load_model()
         if check:
             print(f"Verificación correcta: coseno mínimo entre muestra recalculada y guardada = {verify(model):.6f}")
             return 0
-        manifest = build(model)
+        manifest = build(model, only=only)
     except (RuntimeError, FileNotFoundError, ImportError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1
