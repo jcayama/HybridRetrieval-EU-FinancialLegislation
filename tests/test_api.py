@@ -9,7 +9,7 @@ from main import create_app
 
 def hit(rank, article=None):
     article = article or 100 + rank
-    return SearchHit(rank=rank, chunk_id=f"32022R2554:art_{article}:w200:0", act="DORA 2022/2554", celex="32022R2554", article=article, title=f"Título {article}", snippet=f"fragmento {article}")
+    return SearchHit(rank=rank, chunk_id=f"32022R2554:art_{article}:w200:0", act="DORA 2022/2554", celex="32022R2554", article=article, title=f"Título {article}", snippet=f"fragmento {article}", chunk_words=200)
 
 
 class FakeService:
@@ -68,7 +68,7 @@ def test_defaults_are_hybrid_window_top_10_without_tenant():
 def test_results_have_rank_article_title_and_snippet():
     results = post(FakeService(), {"query": "Lead Overseer"}).json()["results"]
     assert [r["rank"] for r in results] == [1, 2, 3, 4, 5]
-    assert set(results[0]) == {"rank", "chunk_id", "act", "celex", "article", "title", "snippet"}
+    assert set(results[0]) == {"rank", "chunk_id", "act", "celex", "article", "title", "snippet", "chunk_words"}
     assert len({(r["celex"], r["article"]) for r in results}) == len(results)  # artículos distintos
     assert results[0]["title"] == "Título 101" and results[0]["snippet"] == "fragmento 101"
 

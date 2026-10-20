@@ -277,8 +277,14 @@ curl -s -X POST localhost:5013/hybridretrievals -H 'content-type: application/js
 | `mode` | `hybrid` (FTS + dense with RRF k=60), `fts`, `dense` | `hybrid` |
 | `chunking` | `window` (200-word windows), `article` | `window` |
 
-Each result carries `rank`, `act`, `celex`, `article`, `title` and a **snippet of the chunk that matched best**.
-`GET /health` reports whether the database and the model are responding.
+Each result carries `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, a `snippet` of about 400 characters and
+`chunk_words` (the size of the returned chunk). `GET /health` reports whether the database and the model are responding.
+
+- **What the snippet is:** with `chunking=window` it is the start of the best-matching window. With `chunking=article` the
+  chunk is the whole article (`chunk_id` ends in `art_N`), so the snippet is the **passage that best matches the query
+  words** (Postgres `ts_headline`), with «…» where it is cut; if the query shares no words with the article (for example in
+  `dense` mode) it falls back to the start of the article. Article snippets cost more time than window ones because
+  `ts_headline` processes whole articles (not benchmarked).
 
 - **Two installation levels:** with `requirements.txt` (no torch) `mode=fts` works. `hybrid` and `dense` embed the
   query with the model and need `pip install -r requirements-embeddings.txt` (torch, hundreds of MB); without it they

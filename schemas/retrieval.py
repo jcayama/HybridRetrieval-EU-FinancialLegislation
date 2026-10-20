@@ -17,17 +17,30 @@ class RetrievalRequest(BaseModel):
             "hybrid y dense necesitan el modelo (requirements-embeddings.txt)."
         ),
     )
-    chunking: Literal["window", "article"] = Field(default="window", description="Ventanas de 200 palabras (mejor nDCG medido) o un chunk por artículo.")
+    chunking: Literal["window", "article"] = Field(
+        default="window",
+        description=(
+            "window: ventanas de 200 palabras (mejor nDCG medido); el fragmento es el inicio de la ventana que mejor encajó. "
+            "article: un chunk por artículo; el fragmento es el pasaje del artículo que más coincide con la consulta."
+        ),
+    )
 
 
 class Hit(BaseModel):
     rank: int
-    chunk_id: str = Field(description="Chunk que mejor encajó con la consulta dentro de este artículo.")
+    chunk_id: str = Field(description="Chunk que mejor encajó con la consulta dentro de este artículo (`…:w200:N` es una ventana; `…:art_N`, el artículo entero).")
     act: str
     celex: str
     article: int
     title: str
-    snippet: str = Field(description="Fragmento del chunk que mejor encajó, sin la cabecera «Article N. Título».")
+    snippet: str = Field(
+        description=(
+            "Fragmento de unos 400 caracteres, sin la cabecera «Article N. Título». Con chunking=window es el inicio del chunk; "
+            "con chunking=article es el pasaje que más coincide con las palabras de la consulta (ts_headline de Postgres), "
+            "con «…» donde se recorta. Si la consulta no comparte palabras con el artículo (p. ej. en modo dense), es el inicio del artículo."
+        )
+    )
+    chunk_words: int = Field(description="Palabras del cuerpo del chunk devuelto: unas 200 con chunking=window; el artículo entero con chunking=article.")
 
 
 class RetrievalResponse(BaseModel):

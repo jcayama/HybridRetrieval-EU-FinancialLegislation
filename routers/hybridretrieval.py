@@ -28,6 +28,8 @@ def error(status_code: int, error_type: str) -> JSONResponse:
     summary="Recuperar artículos de legislación financiera de la UE",
     description=(
         "Devuelve artículos distintos de AIFMD, DORA y el AI Act ordenados por relevancia. "
+        "Cada resultado trae un fragmento de unos 400 caracteres y el tamaño del chunk (`chunk_words`): con `chunking=window` el fragmento "
+        "es el inicio de la ventana; con `chunking=article`, el pasaje del artículo que más coincide con la consulta. "
         "`mode=fts` funciona con `requirements.txt`; `hybrid` y `dense` necesitan además el modelo de embeddings. "
         "`X-Tenant-ID` solo tiene efecto si el servidor se arranca con `API_ENABLE_TENANTS=true`; no hay autenticación, "
         "así que no es una medida de seguridad sino una demostración del aislamiento por RLS con datos sintéticos."

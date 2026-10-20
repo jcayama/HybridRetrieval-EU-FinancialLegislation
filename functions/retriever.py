@@ -5,6 +5,7 @@ artículos distintos), de modo que lo que devuelve el endpoint es lo que se midi
 un hilo (`asyncio.to_thread`) para no bloquear el bucle de eventos con la base de datos ni con el modelo.
 """
 
+import re
 import threading
 from dataclasses import dataclass
 
@@ -14,13 +15,19 @@ from scripts import db, embeddings
 from scripts.dense import DenseIndex
 from scripts.download_corpus import sha256_bytes
 from scripts.evaluate import CHUNK_FILES, DEPTH
-from scripts.fts import FtsIndex
+from scripts.fts import FtsIndex, build_or_query
 from scripts.hybrid import HybridIndex
 
 MODES = ("hybrid", "fts", "dense")
 SNIPPET_CHARS = 400
 MAX_CACHED_INDEXES = 64  # la cabecera del inquilino la controla el cliente: la caché no puede crecer sin límite
 
+# Con chunking por artículo el chunk es el artículo entero: el fragmento es el pasaje que más coincide con la consulta
+# (ts_headline de Postgres, un solo fragmento). StartSel/StopSel vacíos y ENTRE COMILLAS: sin ellas quedan comas sueltas en el texto.
+ENUMERATOR = re.compile(r"\(?\d{1,3}\)?[.:)]?|\(?[a-z]{1,3}\)")  # «1.», «(a)», «ii)»: numeración de apartados, no texto omitido
+TRAILING_PUNCTUATION = re.compile(r"[.,;:)\]]+")
+HEADLINE_OPTIONS = "MaxFragments=1, MaxWords=60, MinWords=30, StartSel='', StopSel=''"
+HEADLINE_SQL = "SELECT ts_headline('english', u.t, q.query, %s) FROM unnest(%s::text[]) WITH ORDINALITY AS u(t, n), (SELECT to_tsquery('english', %s) AS query) q ORDER BY u.n"
 HYDRATE_SQL = "SELECT chunk_id, act, celex, article, title, text FROM chunks WHERE chunk_id = ANY(%s)"
 PUBLIC_ONLY = " AND tenant_id IS NULL"  # sin inquilino: solo el corpus público
 
@@ -46,15 +53,44 @@ class SearchHit:
     article: int
     title: str
     snippet: str
+    chunk_words: int
+
+
+def chunk_body(chunk_text: str) -> str:
+    """Cuerpo del chunk sin la cabecera «Article N. Título»."""
+    return chunk_text.split("\n", 1)[1] if "\n" in chunk_text else chunk_text
+
+
+def cut(text: str, limit: int = SNIPPET_CHARS) -> str:
+    """Una sola línea y recortado en una frontera de palabra."""
+    text = " ".join(text.split())
+    if len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0].rstrip(" ,;:.") + "…"
 
 
 def make_snippet(chunk_text: str, limit: int = SNIPPET_CHARS) -> str:
-    """Cuerpo del chunk sin la cabecera «Article N. Título», en una línea y recortado en una frontera de palabra."""
-    body = chunk_text.split("\n", 1)[1] if "\n" in chunk_text else chunk_text
-    body = " ".join(body.split())
-    if len(body) <= limit:
-        return body
-    return body[:limit].rsplit(" ", 1)[0].rstrip(" ,;:.") + "…"
+    """Inicio del cuerpo del chunk, sin la cabecera «Article N. Título»."""
+    return cut(chunk_body(chunk_text), limit)
+
+
+def passage_snippet(body: str, fragment: str, limit: int = SNIPPET_CHARS) -> str:
+    """El pasaje elegido por ts_headline, con «…» en el lado donde queda texto del cuerpo fuera del fragmento.
+
+    ts_headline descarta la puntuación de los bordes del fragmento («1.» inicial, punto final): por eso se localiza el
+    fragmento en el cuerpo y solo cuentan como texto omitido las letras y cifras, no la puntuación.
+    """
+    body, fragment = " ".join(body.split()), " ".join(fragment.split())
+    if not fragment:
+        return cut(body, limit)
+    start = body.find(fragment)
+    if start < 0:  # el fragmento no aparece tal cual (no debería ocurrir): se marcan los dos lados
+        return cut("…" + fragment + "…", limit)
+    end = start + len(fragment)
+    if closing := TRAILING_PUNCTUATION.match(body, end):  # la puntuación pegada al final que ts_headline quita
+        fragment, end = fragment + closing.group(), closing.end()
+    omitted = lambda text: any(not ENUMERATOR.fullmatch(word) for word in text.split())  # noqa: E731
+    return cut(("…" if omitted(body[:start]) else "") + fragment + ("…" if omitted(body[end:]) else ""), limit)
 
 
 class RetrievalService:
@@ -123,12 +159,15 @@ class RetrievalService:
             raise ModelUnavailable(self.model_error or "modelo de embeddings no cargado")
         try:
             chunks = self._index(mode, chunking, tenant).search_chunks(query, DEPTH)
-            return self._hydrate(chunks, top_k, tenant)
+            return self._hydrate(chunks, top_k, tenant, query if chunking == "article" else None)
         except (psycopg.Error, RuntimeError) as error:
             raise DatabaseNotReady(str(error)) from error
 
-    def _hydrate(self, chunks: list[tuple[str, tuple[str, int]]], top_k: int, tenant: str | None) -> list[SearchHit]:
-        """Un resultado por artículo (el de su mejor chunk, que es el primero en el ranking), con su título y fragmento."""
+    def _hydrate(self, chunks: list[tuple[str, tuple[str, int]]], top_k: int, tenant: str | None, headline_query: str | None = None) -> list[SearchHit]:
+        """Un resultado por artículo (el de su mejor chunk, que es el primero en el ranking), con su título y fragmento.
+
+        `headline_query`: con chunking por artículo, la consulta con la que elegir el pasaje del artículo (None: el inicio del chunk).
+        """
         best: dict[tuple[str, int], str] = {}
         for chunk_id, article in chunks:
             best.setdefault(article, chunk_id)
@@ -141,9 +180,26 @@ class RetrievalService:
             if tenant is not None:
                 db.tenant_transaction(conn, tenant)  # RLS decide qué filas se ven
             rows = {r[0]: r for r in conn.execute(sql, (list(best.values()),)).fetchall()}
-        hits = []
-        for chunk_id in best.values():
-            if chunk_id in rows:  # defensivo: la fila pudo desaparecer entre la búsqueda y la lectura
-                _, act, celex, article, title, text = rows[chunk_id]
-                hits.append(SearchHit(len(hits) + 1, chunk_id, act, celex, article, title, make_snippet(text)))
-        return hits
+        found = [rows[chunk_id] for chunk_id in best.values() if chunk_id in rows]  # defensivo: la fila pudo desaparecer entre la búsqueda y la lectura
+        fragments = self._passages([row[5] for row in found], headline_query)
+        return [
+            SearchHit(
+                rank,
+                chunk_id,
+                act,
+                celex,
+                article,
+                title,
+                make_snippet(text) if fragment is None else passage_snippet(chunk_body(text), fragment),
+                len(chunk_body(text).split()),
+            )
+            for rank, ((chunk_id, act, celex, article, title, text), fragment) in enumerate(zip(found, fragments, strict=True), 1)
+        ]
+
+    def _passages(self, texts: list[str], query: str | None) -> list[str | None]:
+        """Pasaje de cada texto que más coincide con la consulta (ts_headline), o None si no procede o la consulta no tiene términos."""
+        tsquery = build_or_query(query) if query else None
+        if tsquery is None or not texts:
+            return [None] * len(texts)
+        with db.connect(self.schema) as conn:
+            return [r[0] for r in conn.execute(HEADLINE_SQL, (HEADLINE_OPTIONS, [chunk_body(x) for x in texts], tsquery)).fetchall()]

@@ -280,8 +280,14 @@ curl -s -X POST localhost:5013/hybridretrievals -H 'content-type: application/js
 | `mode` | `hybrid` (FTS + denso con RRF k=60), `fts`, `dense` | `hybrid` |
 | `chunking` | `window` (ventanas de 200 palabras), `article` | `window` |
 
-Cada resultado trae `rank`, `act`, `celex`, `article`, `title` y un **fragmento del chunk que mejor encajó**.
-`GET /health` indica si responden la base de datos y el modelo.
+Cada resultado trae `rank`, `chunk_id`, `act`, `celex`, `article`, `title`, un `snippet` de unos 400 caracteres y
+`chunk_words` (el tamaño del chunk devuelto). `GET /health` indica si responden la base de datos y el modelo.
+
+- **Qué es el fragmento:** con `chunking=window` es el inicio de la ventana que mejor encajó. Con `chunking=article` el
+  chunk es el artículo entero (el `chunk_id` termina en `art_N`), así que el fragmento es el **pasaje que más coincide
+  con las palabras de la consulta** (`ts_headline` de Postgres), con «…» donde se recorta; si la consulta no comparte
+  palabras con el artículo (por ejemplo en modo `dense`), es el inicio del artículo. Los fragmentos de artículo cuestan
+  más tiempo que los de ventana porque `ts_headline` procesa artículos enteros (no medido).
 
 - **Dos niveles de instalación:** con `requirements.txt` (sin torch) funciona `mode=fts`. `hybrid` y `dense` embeben
   la consulta con el modelo y necesitan `pip install -r requirements-embeddings.txt` (torch, cientos de MB); sin
